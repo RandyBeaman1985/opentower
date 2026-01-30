@@ -448,7 +448,12 @@ export interface BuildingCounts {
 export interface IBuilding {
   readonly id: string;
   readonly type: BuildingType;
-  position: Position;
+  /** Building bounds - floor and tile range */
+  position: {
+    floor: number;
+    startTile: number;
+    endTile: number;
+  };
   width: number;
   height: number;
   floors: number[]; // For multi-floor buildings
@@ -493,6 +498,31 @@ export interface BuildingData {
   state: BuildingState;
   stress: number;
   occupantIds: string[];
+  lastEvaluationDate: number | null;
+  consecutiveBadEvals: number;
+  vacantSince: number | null;
+}
+
+/**
+ * Plain building data for storage in Tower.buildingsById
+ * This is the minimal data representation without class methods
+ */
+export interface BuildingRecord {
+  readonly id: string;
+  readonly type: BuildingType;
+  position: {
+    floor: number;
+    startTile: number;
+    endTile: number;
+  };
+  width: number;
+  height: number;
+  floors: number[];
+  state: BuildingState;
+  stress: number;
+  occupantIds: string[];
+  incomePerQuarter: number;
+  maintenanceCostPerQuarter: number;
   lastEvaluationDate: number | null;
   consecutiveBadEvals: number;
   vacantSince: number | null;

@@ -18,6 +18,9 @@ export type {
   SerializedTower,
 } from './tower';
 
+// Type aliases for convenience (match common naming patterns)
+export type { ITower as Tower, IFloor as Floor } from './tower';
+
 // Building types and configurations
 export type {
   IBuilding,
@@ -26,9 +29,13 @@ export type {
   BuildingConfig,
   BuildingCounts,
   BuildingData,
+  BuildingRecord,
   QuarterlyReport,
 } from './buildings';
 export { BUILDING_CONFIGS } from './buildings';
+
+// Type alias for convenience (use BuildingRecord for plain data objects)
+export type { BuildingRecord as Building } from './buildings';
 
 // Clock and time
 export type {
@@ -77,6 +84,13 @@ export type {
   ElevatorCarData,
 } from './transport';
 export { ELEVATOR_CONFIGS, ELEVATOR_LIMITS } from './transport';
+
+// Type aliases for convenience
+export type {
+  IElevatorShaft as ElevatorShaft,
+  IStairs as Stairs,
+  IEscalator as Escalator,
+} from './transport';
 
 // Events
 export type {

@@ -3,7 +3,7 @@
  * @module interfaces/tower
  */
 
-import type { IBuilding, BuildingType, BuildingCounts } from './buildings';
+import type { IBuilding, BuildingRecord, BuildingType, BuildingCounts } from './buildings';
 import type { IElevatorShaft, IStairs, IEscalator } from './transport';
 import type { GameClock } from './clock';
 import type { GameEvent } from './events';
@@ -41,7 +41,7 @@ export interface ITower {
   floorsById: Record<number, IFloor>;
 
   /** All buildings indexed by ID - centralized registry */
-  buildingsById: Record<string, IBuilding>;
+  buildingsById: Record<string, BuildingRecord>;
 
   /** Transport systems */
   elevators: IElevatorShaft[];

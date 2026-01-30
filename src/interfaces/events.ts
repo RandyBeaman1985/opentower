@@ -79,7 +79,9 @@ export type TransportEvent =
 
 // Economic events
 export type EconomicEvent =
+  | { type: 'FUNDS_CHANGE'; oldFunds: number; newFunds: number; change: number }
   | { type: 'FUNDS_CHANGED'; oldAmount: number; newAmount: number; reason: string }
+  | { type: 'INSUFFICIENT_FUNDS'; required: number; available: number }
   | { type: 'INCOME_RECEIVED'; amount: number; source: string; buildingId?: string }
   | { type: 'EXPENSE_PAID'; amount: number; reason: string; buildingId?: string }
   | { type: 'BANKRUPTCY_WARNING'; funds: number }
@@ -87,7 +89,9 @@ export type EconomicEvent =
 
 // Progression events
 export type ProgressionEvent =
+  | { type: 'POPULATION_CHANGE'; oldPopulation: number; newPopulation: number }
   | { type: 'POPULATION_CHANGED'; oldCount: number; newCount: number }
+  | { type: 'STAR_CHANGE'; oldRating: StarRating; newRating: StarRating }
   | { type: 'STAR_RATING_CHANGED'; oldRating: StarRating; newRating: StarRating }
   | { type: 'BUILDING_UNLOCKED'; buildingType: BuildingType }
   | { type: 'TOWER_STATUS_ACHIEVED' }
@@ -112,10 +116,16 @@ export type GameEventEvent =
 export type UIEvent =
   | { type: 'BUILDING_SELECTED'; buildingId: string | null }
   | { type: 'TOOL_SELECTED'; tool: string }
+  | { type: 'CAMERA_CHANGE'; x: number; y: number; zoom: number }
   | { type: 'CAMERA_MOVED'; position: Position; zoom: number }
   | { type: 'NOTIFICATION_SHOWN'; message: string; severity: 'info' | 'warning' | 'error' }
   | { type: 'MENU_OPENED'; menu: string }
   | { type: 'MENU_CLOSED'; menu: string };
+
+// Floor events
+export type FloorEvent =
+  | { type: 'FLOOR_CREATED'; level: number }
+  | { type: 'PLACEMENT_BLOCKED'; floor: number; tile: number; reason: string };
 
 // All event types
 export type AppEvent =
@@ -126,7 +136,8 @@ export type AppEvent =
   | EconomicEvent
   | ProgressionEvent
   | GameEventEvent
-  | UIEvent;
+  | UIEvent
+  | FloorEvent;
 
 /**
  * Event subscription handle

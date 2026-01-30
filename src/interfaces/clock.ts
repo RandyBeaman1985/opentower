@@ -14,6 +14,9 @@ export interface GameClock {
   /** Current simulation tick counter */
   currentTick: number;
 
+  /** In-game second (0-59) */
+  gameSecond: number;
+
   /** In-game minute (0-59) */
   gameMinute: number;
 
