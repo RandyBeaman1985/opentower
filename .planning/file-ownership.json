@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "File ownership manifest for multi-agent coordination",
+  "version": "1.0.0",
+  "lastUpdated": "2025-01-29T00:00:00Z",
+  "exclusive": {
+    "src/core/Game.ts": "Build-1 Wave 1.1",
+    "src/core/Clock.ts": "Build-1 Wave 1.1",
+    "src/core/EventBus.ts": "Build-1 Wave 1.1",
+    "src/core/SaveManager.ts": "Build-1 Wave 10.1",
+    "src/simulation/Tower.ts": "Build-2 Wave 1.1",
+    "src/simulation/Floor.ts": "Build-2 Wave 1.1",
+    "src/rendering/Camera.ts": "Build-3 Wave 1.1",
+    "src/rendering/TowerRenderer.ts": "Build-1 Wave 1.2",
+    "src/buildings/Building.ts": "Build-1 Wave 2.1",
+    "src/buildings/Lobby.ts": "Build-1 Wave 2.1",
+    "src/simulation/PlacementValidator.ts": "Build-3 Wave 2.1",
+    "src/transport/ElevatorScheduler.ts": "Build-1 Wave 4.2b",
+    "src/simulation/workers/elevator.worker.ts": "Build-2 Wave 4.2b"
+  },
+  "shared": {
+    "src/interfaces/": {
+      "owner": "Architect",
+      "rule": "Read-only for Build agents, modifications require Architect approval"
+    },
+    "src/buildings/": {
+      "base": "Build-1 Wave 2.1",
+      "extensions": "ANY building agent can add new building type files"
+    },
+    "src/entities/": {
+      "base": "Build-1 Wave 3.1",
+      "extensions": "ANY entity agent can add new entity type files"
+    },
+    "src/index.ts": {
+      "owner": "Phase Manager",
+      "rule": "Only Phase Manager modifies barrel exports"
+    },
+    "package.json": {
+      "owner": "Build-1 per wave",
+      "rule": "Sequential modification only, one agent per wave"
+    }
+  },
+  "testOwnership": {
+    "rule": "Test files follow source ownership - if agent owns src/foo.ts, they own tests/foo.test.ts"
+  }
+}
