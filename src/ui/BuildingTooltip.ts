@@ -13,6 +13,7 @@
 import type { Building } from '@/interfaces';
 import type { ElevatorShaft } from '@/entities/ElevatorShaft';
 import { BUILDING_CONFIGS } from '@/interfaces/buildings';
+import type { EvaluationSystem } from '@/simulation/EvaluationSystem';
 
 export interface TooltipData {
   building?: Building;
@@ -24,27 +25,54 @@ export class BuildingTooltip {
   private container: HTMLDivElement;
   private visible: boolean = false;
   private currentData: TooltipData | null = null;
+  private evaluationSystem: EvaluationSystem | null = null;
 
   constructor() {
     this.container = document.createElement('div');
     this.container.id = 'building-tooltip';
     this.container.style.cssText = `
       position: fixed;
-      background: rgba(0, 0, 0, 0.9);
+      background: linear-gradient(135deg, rgba(30,30,30,0.98) 0%, rgba(20,20,20,0.98) 100%);
       color: white;
-      padding: 10px 12px;
-      font-family: monospace;
-      font-size: 11px;
-      border-radius: 6px;
+      padding: 14px 16px;
+      font-family: 'Segoe UI', 'Roboto', sans-serif;
+      font-size: 13px;
+      border-radius: 10px;
       pointer-events: none;
       z-index: 2000;
       display: none;
-      min-width: 200px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      min-width: 240px;
+      max-width: 320px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255,255,255,0.1);
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+      animation: tooltipFadeIn 0.2s ease;
     `;
 
+    // Add animation keyframes
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes tooltipFadeIn {
+        from {
+          opacity: 0;
+          transform: scale(0.95) translateY(-5px);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+      }
+    `;
+    document.head.appendChild(style);
+
     document.body.appendChild(this.container);
+  }
+
+  /**
+   * Set the evaluation system for displaying building evaluations
+   */
+  setEvaluationSystem(evaluationSystem: EvaluationSystem): void {
+    this.evaluationSystem = evaluationSystem;
   }
 
   /**
@@ -116,14 +144,29 @@ export class BuildingTooltip {
     const netDaily = dailyIncome - dailyMaintenance;
 
     let html = `
-      <div style="font-weight: bold; font-size: 13px; margin-bottom: 6px; color: #fbbf24;">
+      <div style="
+        font-weight: 700;
+        font-size: 16px;
+        margin-bottom: 8px;
+        color: #FFA726;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        padding-bottom: 8px;
+        border-bottom: 2px solid rgba(255,167,38,0.3);
+      ">
         ${config.name}
       </div>
     `;
 
     // Type and category
     html += `
-      <div style="opacity: 0.7; font-size: 10px; margin-bottom: 4px;">
+      <div style="
+        opacity: 0.7;
+        font-size: 11px;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 500;
+      ">
         ${this.formatCategory(config.category)}
       </div>
     `;
@@ -137,14 +180,23 @@ export class BuildingTooltip {
 
     // Occupancy (if building has capacity)
     if (capacity > 0) {
-      const occupancyColor = occupancyPercent > 80 ? '#ef4444' : occupancyPercent > 50 ? '#fbbf24' : '#10b981';
+      const occupancyColor = occupancyPercent > 80 ? '#EF5350' : occupancyPercent > 50 ? '#FFA726' : '#66BB6A';
       html += `
-        <div style="margin-bottom: 4px;">
-          <span style="opacity: 0.8;">Occupancy:</span> 
-          <span style="color: ${occupancyColor}; font-weight: bold;">
-            ${occupancy}/${capacity}
-          </span>
-          <span style="opacity: 0.7;"> (${occupancyPercent}%)</span>
+        <div style="
+          margin: 8px 0;
+          padding: 8px;
+          background: rgba(255,255,255,0.05);
+          border-radius: 6px;
+          border-left: 3px solid ${occupancyColor};
+        ">
+          <div style="opacity: 0.8; font-size: 11px; margin-bottom: 4px; font-weight: 600;">Occupancy</div>
+          <div style="display: flex; align-items: baseline; gap: 6px;">
+            <span style="color: ${occupancyColor}; font-weight: 700; font-size: 18px; font-family: 'Courier New', monospace;">
+              ${occupancy}
+            </span>
+            <span style="opacity: 0.6; font-size: 14px;">/ ${capacity}</span>
+            <span style="opacity: 0.5; font-size: 11px; margin-left: auto;">(${occupancyPercent}%)</span>
+          </div>
         </div>
       `;
     }
@@ -156,44 +208,159 @@ export class BuildingTooltip {
 
     // Income/day
     if (dailyIncome > 0 || dailyMaintenance > 0) {
-      const netColor = netDaily > 0 ? '#10b981' : netDaily < 0 ? '#ef4444' : '#888';
+      const netColor = netDaily > 0 ? '#66BB6A' : netDaily < 0 ? '#EF5350' : '#888';
       html += `
-        <div style="margin-bottom: 4px;">
-          <span style="opacity: 0.8;">Income/day:</span> 
-          <span style="color: ${netColor}; font-weight: bold;">
-            $${netDaily.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-          </span>
-        </div>
+        <div style="
+          margin: 8px 0;
+          padding: 8px;
+          background: rgba(255,255,255,0.05);
+          border-radius: 6px;
+          border-left: 3px solid ${netColor};
+        ">
+          <div style="opacity: 0.8; font-size: 11px; margin-bottom: 4px; font-weight: 600;">Daily Income</div>
+          <div style="display: flex; align-items: baseline; gap: 6px;">
+            <span style="color: ${netColor}; font-weight: 700; font-size: 18px; font-family: 'Courier New', monospace;">
+              ${netDaily >= 0 ? '+' : ''}$${netDaily.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </span>
+          </div>
       `;
       
       if (dailyMaintenance > 0) {
         html += `
-          <div style="font-size: 10px; opacity: 0.6; margin-left: 10px;">
-            Revenue: $${dailyIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })} 
-            | Costs: $${dailyMaintenance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          <div style="font-size: 10px; opacity: 0.5; margin-top: 4px; font-family: 'Courier New', monospace;">
+            <span style="color: #66BB6A;">+$${dailyIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            <span style="opacity: 0.7;"> • </span>
+            <span style="color: #EF5350;">-$${dailyMaintenance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
           </div>
         `;
       }
+      
+      html += `</div>`;
     }
 
     // Stress level
     if (building.stress > 0) {
-      const stressColor = building.stress > 80 ? '#ef4444' : building.stress > 50 ? '#fbbf24' : '#10b981';
+      const stressColor = building.stress > 80 ? '#EF5350' : building.stress > 50 ? '#FFA726' : '#66BB6A';
       html += `
-        <div style="margin-bottom: 4px;">
-          <span style="opacity: 0.8;">Stress:</span> 
-          <span style="color: ${stressColor}; font-weight: bold;">
+        <div style="
+          margin: 8px 0;
+          padding: 6px 8px;
+          background: rgba(255,255,255,0.05);
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        ">
+          <span style="opacity: 0.8; font-size: 11px; font-weight: 600;">Stress Level</span>
+          <span style="color: ${stressColor}; font-weight: 700; font-size: 14px; font-family: 'Courier New', monospace;">
             ${building.stress}%
           </span>
         </div>
       `;
     }
 
+    // Evaluation score (BUG-025 FIX)
+    if (this.evaluationSystem) {
+      const evaluation = this.evaluationSystem.getEvaluation(building.id);
+      const score = Math.round(evaluation.score);
+      const color = evaluation.color;
+      const colorHex = color === 'blue' ? '#42A5F5' : color === 'yellow' ? '#FFA726' : '#EF5350';
+      const label = color === 'blue' ? 'Excellent' : color === 'yellow' ? 'Fair' : 'Poor';
+
+      html += `
+        <div style="
+          margin: 8px 0;
+          padding: 8px;
+          background: rgba(255,255,255,0.05);
+          border-radius: 6px;
+          border-left: 3px solid ${colorHex};
+        ">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <span style="opacity: 0.8; font-size: 11px; font-weight: 600;">Evaluation</span>
+            <span style="color: ${colorHex}; font-weight: 700; font-size: 14px; font-family: 'Courier New', monospace;">
+              ${score}%
+            </span>
+          </div>
+          <div style="
+            height: 8px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+          ">
+            <div style="
+              position: absolute;
+              left: 0;
+              top: 0;
+              height: 100%;
+              width: ${score}%;
+              background: ${colorHex};
+              border-radius: 4px;
+              transition: width 0.3s ease;
+            "></div>
+          </div>
+          <div style="
+            margin-top: 4px;
+            font-size: 10px;
+            opacity: 0.6;
+            text-align: right;
+          ">${label}</div>
+        </div>
+      `;
+
+      // Show breakdown of factors affecting evaluation
+      if (evaluation.factors) {
+        const factors = evaluation.factors;
+        const hasNegativeFactors = Object.values(factors).some(v => v < 0);
+        
+        if (hasNegativeFactors) {
+          html += `
+            <div style="
+              margin: 8px 0;
+              padding: 6px 8px;
+              background: rgba(255,255,255,0.03);
+              border-radius: 6px;
+              font-size: 10px;
+              opacity: 0.7;
+            ">
+              <div style="font-weight: 600; margin-bottom: 4px;">Issues:</div>
+          `;
+
+          if (factors.waitTime < 0) {
+            html += `<div style="margin: 2px 0;">• Elevator wait time: ${factors.waitTime}%</div>`;
+          }
+          if (factors.walkDistance < 0) {
+            html += `<div style="margin: 2px 0;">• Walking distance: ${factors.walkDistance}%</div>`;
+          }
+          if (factors.noise < 0) {
+            html += `<div style="margin: 2px 0;">• Noise: ${factors.noise}%</div>`;
+          }
+          if (factors.rent < 0) {
+            html += `<div style="margin: 2px 0;">• Rent too high: ${factors.rent}%</div>`;
+          }
+          if (factors.services < 0) {
+            html += `<div style="margin: 2px 0;">• Missing services: ${factors.services}%</div>`;
+          }
+
+          html += `</div>`;
+        }
+      }
+    }
+
     // Size info
     html += `
-      <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.2); font-size: 10px; opacity: 0.6;">
-        ${building.width} tiles × ${building.height} floor${building.height > 1 ? 's' : ''}
-        • $${config.cost.toLocaleString()} cost
+      <div style="
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 2px solid rgba(255,255,255,0.1);
+        font-size: 11px;
+        opacity: 0.5;
+        font-family: 'Courier New', monospace;
+        display: flex;
+        justify-content: space-between;
+      ">
+        <span>${building.width}×${building.height} tiles</span>
+        <span>$${config.cost.toLocaleString()}</span>
       </div>
     `;
 

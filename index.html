@@ -15,6 +15,7 @@
         height: 100%;
         overflow: hidden;
         background-color: #1a1a2e;
+        font-family: 'Segoe UI', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
       }
       #game-container {
         width: 100%;
@@ -26,13 +27,41 @@
       canvas {
         display: block;
       }
+      
+      /* Custom scrollbar for game elements */
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: rgba(0,0,0,0.2);
+        border-radius: 5px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.3);
+        border-radius: 5px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255,255,255,0.4);
+      }
+      
+      /* Keyboard shortcut styling */
+      kbd {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 3px;
+        padding: 2px 6px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9em;
+        font-weight: 600;
+      }
     </style>
   </head>
   <body>
     <div id="game-container"></div>
-    <div id="loading" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:white;font-family:system-ui;font-size:24px;text-align:center;">
+    <div id="loading" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:white;font-family:'Segoe UI', sans-serif;font-size:28px;text-align:center;font-weight:600;">
       🏢 Loading OpenTower...<br>
-      <small style="font-size:14px;opacity:0.7;">If this doesn't disappear, check browser console for errors</small>
+      <small style="font-size:14px;opacity:0.7;font-weight:400;">If this doesn't disappear, check browser console for errors</small>
     </div>
     <script type="module" src="/src/index.ts"></script>
     <script>

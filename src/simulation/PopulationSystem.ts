@@ -15,6 +15,9 @@ import { PathfindingSystem } from './PathfindingSystem';
 import type { ElevatorSystem } from './ElevatorSystem';
 import { PopulationAI } from './PopulationAI';
 
+// 🆕 BUG-017 & BUG-024 FIX: Central population cap constant
+const MAX_POPULATION = 10000; // SimTower had ~15K limit, we use 10K for performance
+
 /**
  * Default schedules for different person types
  */
@@ -91,6 +94,20 @@ export class PopulationSystem {
   }
   
   /**
+   * Get AI data for all people (for rendering)
+   */
+  getAIData(): Map<string, import('./PopulationAI').PersonAIData> {
+    const aiDataMap = new Map();
+    for (const person of this.people.values()) {
+      const data = this.populationAI.getPersonAIData(person.id);
+      if (data) {
+        aiDataMap.set(person.id, data);
+      }
+    }
+    return aiDataMap;
+  }
+  
+  /**
    * Get total population count
    */
   getPopulation(): number {
@@ -136,8 +153,7 @@ export class PopulationSystem {
 
     this.lastImmigrationTick = currentTick;
 
-    // 🆕 BUG-017 FIX: Maximum population cap (SimTower had ~15K limit)
-    const MAX_POPULATION = 10000;
+    // 🆕 BUG-017 FIX: Population cap check (now uses central constant)
     if (this.people.size >= MAX_POPULATION) {
       return; // Population cap reached
     }
@@ -230,7 +246,7 @@ export class PopulationSystem {
     this.handleElevatorExiting(elevatorSystem);
     
     // Remove people who have left
-    this.cleanupLeavingPeople();
+    this.cleanupLeavingPeople(tower);
   }
   
   /**
@@ -532,12 +548,16 @@ export class PopulationSystem {
   /**
    * Remove people who are leaving
    */
-  private cleanupLeavingPeople(): void {
+  private cleanupLeavingPeople(tower: Tower): void {
     for (const [id, person] of this.people) {
       if (person.state === 'leaving') {
         // Remove from building occupancy
         if (person.destinationBuildingId) {
-          // TODO: Remove from building.occupantIds
+          const building = tower.buildingsById[person.destinationBuildingId];
+          if (building) {
+            // Remove person ID from building's occupant list (prevents memory leak)
+            building.occupantIds = building.occupantIds.filter(occupantId => occupantId !== id);
+          }
         }
         
         // 🧠 Remove AI data
@@ -551,9 +571,17 @@ export class PopulationSystem {
   
   /**
    * Add a person to the simulation
+   * 🆕 BUG-024 FIX: Enforce population cap at entry point
    */
-  addPerson(person: Person): void {
+  addPerson(person: Person): boolean {
+    // Population cap guard (prevents exploits and performance issues)
+    if (this.people.size >= MAX_POPULATION) {
+      console.warn(`⚠️ Population cap reached (${MAX_POPULATION}). Cannot add person.`);
+      return false;
+    }
+    
     this.people.set(person.id, person);
+    return true;
   }
   
   /**

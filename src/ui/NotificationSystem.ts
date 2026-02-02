@@ -10,6 +10,8 @@
  * @module ui/NotificationSystem
  */
 
+import { getSoundManager } from '@/audio/SoundManager';
+
 export type NotificationType = 'success' | 'info' | 'warning' | 'critical' | 'star';
 
 export interface Notification {
@@ -278,27 +280,8 @@ export class NotificationSystem {
    * Play star rating sound effect
    */
   private playStarSound(): void {
-    // TODO: Integrate with SoundManager when ready
-    // For now, use browser's audio API for a simple chime
-    try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-
-      oscillator.frequency.value = 880; // A5 note
-      oscillator.type = 'sine';
-
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.5);
-    } catch (e) {
-      // Audio not supported, silently fail
-    }
+    // Play the proper star rating fanfare from SoundManager
+    getSoundManager().playStarRatingUp();
   }
 
   /**

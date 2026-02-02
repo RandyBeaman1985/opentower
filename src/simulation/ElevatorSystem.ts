@@ -10,6 +10,7 @@
 import { ElevatorShaft, ElevatorType, ElevatorShaftConfig } from '@/entities/ElevatorShaft';
 import { ElevatorCar } from '@/entities/ElevatorCar';
 import type { Tower } from '@/interfaces';
+import type { Person } from '@/entities/Person';
 
 /**
  * Passenger waiting for elevator
@@ -127,7 +128,7 @@ export class ElevatorSystem {
   /**
    * Update all elevators and passenger queues
    */
-  update(tower: Tower, gameSpeed: number): void {
+  update(tower: Tower, gameSpeed: number, peopleMap?: Map<string, Person>): void {
     const currentTime = tower.clock.currentTick;
     
     // Update all elevator shafts
@@ -136,7 +137,7 @@ export class ElevatorSystem {
     }
     
     // Update waiting passengers (stress accumulation)
-    this.updateWaitingPassengers(currentTime, gameSpeed);
+    this.updateWaitingPassengers(currentTime, gameSpeed, peopleMap);
     
     // Update call button states
     this.updateCallButtons();
@@ -148,7 +149,7 @@ export class ElevatorSystem {
   /**
    * Update waiting passenger stress levels
    */
-  private updateWaitingPassengers(currentTime: number, gameSpeed: number): void {
+  private updateWaitingPassengers(currentTime: number, gameSpeed: number, peopleMap?: Map<string, Person>): void {
     for (const passenger of this.waitingPassengers.values()) {
       const waitTime = currentTime - passenger.waitStartTime;
       
@@ -165,11 +166,25 @@ export class ElevatorSystem {
         // Will be counted in stats
       }
       
-      // TODO: If wait time exceeds max, passenger gives up and leaves
+      // Give up if wait time exceeds maximum (2 minutes)
       if (waitTime > this.MAX_WAIT_TIME_SECONDS) {
-        // Remove from queue, trigger negative event
+        console.warn(`⏱️ Person ${passenger.personId} gave up waiting for elevator after ${waitTime}s (floor ${passenger.floor})`);
+        
+        // Remove from elevator queue
         this.waitingPassengers.delete(passenger.personId);
         this.stats.stressedPassengers++;
+        
+        // Update the person's state if we have access
+        if (peopleMap) {
+          const person = peopleMap.get(passenger.personId);
+          if (person && person.state === 'waitingForElevator') {
+            // Change state back to idle - they'll reconsider their options
+            person.state = 'idle';
+            person.stress = Math.min(100, person.stress + 20); // Significant stress increase
+            person.currentThought = 'Wait too long! 😤';
+            console.log(`   → Changed person state to idle, stress now ${person.stress}`);
+          }
+        }
       }
     }
   }

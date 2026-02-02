@@ -18,6 +18,9 @@ export interface TopBarData {
   population: number;
   starRating: number;
   maxStars?: number;
+  happyPeople?: number;
+  stressedPeople?: number;
+  waitingForElevator?: number;
 }
 
 export type SpeedChangeCallback = (speed: GameSpeed) => void;
@@ -28,6 +31,7 @@ export class TopBar {
   private dateDisplay: HTMLSpanElement;
   private populationDisplay: HTMLSpanElement;
   private starDisplay: HTMLSpanElement;
+  private satisfactionDisplay: HTMLSpanElement;
   private speedButtons: Map<GameSpeed, HTMLButtonElement> = new Map();
   
   private speedCallback: SpeedChangeCallback | null = null;
@@ -49,6 +53,7 @@ export class TopBar {
     this.fundsDisplay = this.createFundsDisplay();
     this.dateDisplay = this.createDateDisplay();
     this.populationDisplay = this.createPopulationDisplay();
+    this.satisfactionDisplay = this.createSatisfactionDisplay();
     this.starDisplay = this.createStarDisplay();
     const speedControls = this.createSpeedControls();
     
@@ -58,6 +63,8 @@ export class TopBar {
     this.container.appendChild(this.dateDisplay);
     this.container.appendChild(this.createSeparator());
     this.container.appendChild(this.populationDisplay);
+    this.container.appendChild(this.createSeparator());
+    this.container.appendChild(this.satisfactionDisplay);
     this.container.appendChild(this.createSeparator());
     this.container.appendChild(this.starDisplay);
     this.container.appendChild(speedControls);
@@ -71,66 +78,120 @@ export class TopBar {
       top: 0;
       left: 0;
       right: 0;
-      height: 50px;
-      background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
+      height: 56px;
+      background: linear-gradient(180deg, #2c2c2c 0%, #1e1e1e 100%);
       color: white;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 20px;
-      font-family: 'Arial', sans-serif;
+      padding: 0 24px;
+      font-family: 'Segoe UI', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 14px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.6);
       z-index: 9999;
       user-select: none;
-      border-bottom: 2px solid #444;
+      border-bottom: 3px solid #3a3a3a;
+      backdrop-filter: blur(10px);
     `;
   }
 
   private createFundsDisplay(): HTMLSpanElement {
     const display = document.createElement('span');
     display.style.cssText = `
-      font-size: 18px;
-      font-weight: bold;
-      color: #4CAF50;
-      min-width: 150px;
-      transition: all 0.3s ease;
+      font-size: 20px;
+      font-weight: 700;
+      color: #FFD700;
+      min-width: 180px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.4));
     `;
-    display.innerHTML = '💰 <span style="color: #81C784;">$0</span>';
+    display.innerHTML = '<span style="font-size: 24px;">💰</span><span style="color: #FFD700; font-family: \'Courier New\', monospace;">$0</span>';
     return display;
   }
 
   private createDateDisplay(): HTMLSpanElement {
     const display = document.createElement('span');
     display.style.cssText = `
-      font-size: 14px;
-      color: #ccc;
-      min-width: 180px;
+      font-size: 15px;
+      color: #e0e0e0;
+      min-width: 200px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.05);
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.1);
     `;
-    display.innerHTML = '📅 <span>Day 1, 09:00 AM</span>';
+    display.innerHTML = '<span style="font-size: 18px;">📅</span><span style="font-family: \'Courier New\', monospace;">Day 1, 09:00 AM</span>';
     return display;
   }
 
   private createPopulationDisplay(): HTMLSpanElement {
     const display = document.createElement('span');
     display.style.cssText = `
-      font-size: 14px;
-      color: #64B5F6;
-      min-width: 120px;
+      font-size: 15px;
+      color: #90CAF9;
+      min-width: 130px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     `;
-    display.innerHTML = '👥 <span>0</span> people';
+    display.innerHTML = '<span style="font-size: 18px;">👥</span><span style="font-family: \'Courier New\', monospace;">0</span> people';
+    return display;
+  }
+
+  private createSatisfactionDisplay(): HTMLSpanElement {
+    const display = document.createElement('span');
+    display.style.cssText = `
+      font-size: 15px;
+      color: #81C784;
+      min-width: 130px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    `;
+    display.innerHTML = '😊 <span style="color: #81C784; font-family: \'Courier New\', monospace;">0</span> 😰 <span style="color: #FF8A80; font-family: \'Courier New\', monospace;">0</span>';
+    display.title = 'Happy people / Stressed people';
     return display;
   }
 
   private createStarDisplay(): HTMLSpanElement {
     const display = document.createElement('span');
     display.style.cssText = `
-      font-size: 18px;
-      min-width: 150px;
+      font-size: 24px;
+      min-width: 180px;
       cursor: help;
+      padding: 4px 12px;
+      background: linear-gradient(135deg, rgba(255,167,38,0.15) 0%, rgba(255,193,7,0.1) 100%);
+      border-radius: 8px;
+      border: 2px solid rgba(255,167,38,0.3);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.3s ease;
+      filter: drop-shadow(0 2px 6px rgba(255,167,38,0.3));
     `;
     display.title = 'Current star rating';
     display.innerHTML = '⭐☆☆☆☆☆';
+    
+    // Add hover effect
+    display.onmouseenter = () => {
+      display.style.transform = 'scale(1.05)';
+      display.style.borderColor = 'rgba(255,167,38,0.5)';
+    };
+    display.onmouseleave = () => {
+      display.style.transform = 'scale(1)';
+      display.style.borderColor = 'rgba(255,167,38,0.3)';
+    };
+    
     return display;
   }
 
@@ -164,42 +225,46 @@ export class TopBar {
     const button = document.createElement('button');
     button.textContent = `${icon} ${label}`;
     button.style.cssText = `
-      padding: 8px 16px;
-      background: #333;
+      padding: 10px 18px;
+      background: linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 100%);
       color: white;
-      border: 2px solid #555;
-      border-radius: 5px;
+      border: 2px solid #4a4a4a;
+      border-radius: 8px;
       cursor: pointer;
-      font-size: 13px;
-      font-weight: bold;
-      transition: all 0.2s ease;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
       font-family: inherit;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      min-width: 80px;
     `;
 
     // Hover effect
     button.onmouseenter = () => {
       if (this.currentSpeed !== speed) {
-        button.style.background = '#444';
-        button.style.borderColor = '#666';
-        button.style.transform = 'translateY(-1px)';
+        button.style.background = 'linear-gradient(180deg, #4a4a4a 0%, #3a3a3a 100%)';
+        button.style.borderColor = '#5a5a5a';
+        button.style.transform = 'translateY(-2px)';
+        button.style.boxShadow = '0 4px 12px rgba(0,0,0,0.4)';
       }
     };
 
     button.onmouseleave = () => {
       if (this.currentSpeed !== speed) {
-        button.style.background = '#333';
-        button.style.borderColor = '#555';
+        button.style.background = 'linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 100%)';
+        button.style.borderColor = '#4a4a4a';
         button.style.transform = 'translateY(0)';
+        button.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
       }
     };
 
     // Click effect
     button.onmousedown = () => {
-      button.style.transform = 'translateY(1px)';
+      button.style.transform = 'translateY(0px) scale(0.95)';
     };
 
     button.onmouseup = () => {
-      button.style.transform = this.currentSpeed === speed ? 'translateY(0)' : 'translateY(-1px)';
+      button.style.transform = this.currentSpeed === speed ? 'translateY(0)' : 'translateY(-2px)';
     };
 
     button.onclick = () => {
@@ -215,13 +280,15 @@ export class TopBar {
   private updateSpeedButtons(): void {
     this.speedButtons.forEach((button, speed) => {
       if (speed === this.currentSpeed) {
-        button.style.background = '#4CAF50';
-        button.style.borderColor = '#66BB6A';
+        button.style.background = 'linear-gradient(180deg, #66BB6A 0%, #4CAF50 100%)';
+        button.style.borderColor = '#81C784';
         button.style.transform = 'translateY(0)';
+        button.style.boxShadow = '0 2px 12px rgba(76,175,80,0.5)';
       } else {
-        button.style.background = '#333';
-        button.style.borderColor = '#555';
+        button.style.background = 'linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 100%)';
+        button.style.borderColor = '#4a4a4a';
         button.style.transform = 'translateY(0)';
+        button.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
       }
     });
   }
@@ -229,10 +296,10 @@ export class TopBar {
   private createSeparator(): HTMLDivElement {
     const separator = document.createElement('div');
     separator.style.cssText = `
-      width: 1px;
-      height: 30px;
-      background: #444;
-      margin: 0 15px;
+      width: 2px;
+      height: 32px;
+      background: linear-gradient(180deg, transparent 0%, #4a4a4a 50%, transparent 100%);
+      margin: 0 18px;
     `;
     return separator;
   }
@@ -248,19 +315,25 @@ export class TopBar {
     const oldFunds = this.data.funds;
     this.data.funds = funds;
     
-    // Color flash on change
+    // Color flash on change with better visuals
     if (funds > oldFunds) {
-      this.fundsDisplay.style.color = '#81C784'; // Green flash
+      this.fundsDisplay.style.color = '#4CAF50'; // Green flash
+      this.fundsDisplay.style.transform = 'scale(1.1)';
+      this.fundsDisplay.style.filter = 'drop-shadow(0 0 12px rgba(76,175,80,0.6))';
     } else if (funds < oldFunds) {
-      this.fundsDisplay.style.color = '#E57373'; // Red flash
+      this.fundsDisplay.style.color = '#EF5350'; // Red flash
+      this.fundsDisplay.style.transform = 'scale(0.95)';
+      this.fundsDisplay.style.filter = 'drop-shadow(0 0 12px rgba(239,83,80,0.6))';
     }
     
-    this.fundsDisplay.innerHTML = `💰 <span style="color: inherit;">$${funds.toLocaleString()}</span>`;
+    this.fundsDisplay.innerHTML = `<span style="font-size: 24px;">💰</span><span style="color: inherit; font-family: 'Courier New', monospace;">$${funds.toLocaleString()}</span>`;
     
     // Reset color after animation
     setTimeout(() => {
-      this.fundsDisplay.style.color = '#4CAF50';
-    }, 300);
+      this.fundsDisplay.style.color = '#FFD700';
+      this.fundsDisplay.style.transform = 'scale(1)';
+      this.fundsDisplay.style.filter = 'drop-shadow(0 0 8px rgba(255,215,0,0.4))';
+    }, 400);
   }
 
   /** Update date/time display */
@@ -271,14 +344,35 @@ export class TopBar {
     const timeString = `${hour}:${minute}`;
     const quarter = clock.gameQuarter;
     
-    this.dateDisplay.innerHTML = `📅 <span>Day ${day}, ${timeString} (Q${quarter})</span>`;
+    this.dateDisplay.innerHTML = `<span style="font-size: 18px;">📅</span><span style="font-family: 'Courier New', monospace;">Day ${day}, ${timeString} <span style="opacity: 0.6;">(Q${quarter})</span></span>`;
   }
 
   /** Update population display */
   updatePopulation(population: number): void {
     this.data.population = population;
     const peopleText = population === 1 ? 'person' : 'people';
-    this.populationDisplay.innerHTML = `👥 <span>${population}</span> ${peopleText}`;
+    this.populationDisplay.innerHTML = `<span style="font-size: 18px;">👥</span><span style="font-family: 'Courier New', monospace;">${population}</span> ${peopleText}`;
+  }
+
+  /** Update satisfaction display */
+  updateSatisfaction(happyPeople: number, stressedPeople: number): void {
+    this.data.happyPeople = happyPeople;
+    this.data.stressedPeople = stressedPeople;
+    
+    // Color code based on ratio
+    const total = happyPeople + stressedPeople;
+    const happyPercent = total > 0 ? (happyPeople / total) * 100 : 100;
+    
+    let happyColor = '#81C784';
+    let stressedColor = '#FF8A80';
+    
+    if (happyPercent > 70) {
+      happyColor = '#66BB6A'; // Darker green when very happy
+    } else if (happyPercent < 30) {
+      stressedColor = '#F44336'; // Brighter red when mostly stressed
+    }
+    
+    this.satisfactionDisplay.innerHTML = `😊 <span style="color: ${happyColor}; font-family: 'Courier New', monospace;">${happyPeople}</span> 😰 <span style="color: ${stressedColor}; font-family: 'Courier New', monospace;">${stressedPeople}</span>`;
   }
 
   /** Update star rating display */

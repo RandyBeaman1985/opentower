@@ -1,5 +1,5 @@
 # OpenTower Current Status
-**Last Updated:** 2026-02-02, 6:20 AM MST (v0.7.9)
+**Last Updated:** 2026-02-02, 11:00 AM MST (v0.8.0)
 
 ## 📊 Phase Completion
 
@@ -30,7 +30,29 @@
 
 ---
 
-## 🚀 Latest Version: v0.7.9
+## 🚀 Latest Version: v0.8.0
+
+### 🎮 GAME FEEL UPDATE - MAJOR IMPROVEMENT!
+
+**What Changed:**
+- ✅ **FloatingTextSystem** - Money popups, notifications, celebrations
+- ✅ **Enhanced ParticleEffect** - Construction dust, debris, coins, sparkles
+- ✅ **GameHUD** - Animated money counter, star rating display, progress bar
+- ✅ **GameFeelManager** - Coordinates all visual/audio feedback
+- ✅ **Full Integration** - Every action now has satisfying feedback!
+
+**Impact:**
+- 🎉 Game now feels SATISFYING to play (not just functional)
+- 💰 Money feels meaningful (animated counters + floating text)
+- ⭐ Progression feels EARNED (star celebrations + progress bar)
+- 🔊 Every action has feedback (sound + visuals)
+- 🎮 **SimTower's "juice" is now in OpenTower!**
+
+**Build:** ✅ SUCCESS (476 KB, 137 KB gzipped)
+
+---
+
+## Previous Version: v0.7.9
 
 ### What's New
 - ✅ **Performance Benchmark System**

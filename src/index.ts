@@ -217,6 +217,30 @@ async function main() {
     console.log(`Created elevator shaft at tile ${tile}, floors ${minFloor}-${maxFloor}`);
   });
   
+  // ✅ NEW: Connect elevator overlap checking callback
+  placer.setElevatorOverlapCallback((tile, minFloor, maxFloor) => {
+    const elevatorSystem = game.getElevatorSystem();
+    const shafts = elevatorSystem.getShafts();
+    
+    // Check if new shaft overlaps with any existing shaft
+    for (const shaft of shafts) {
+      // Same tile?
+      if (shaft.tileX !== tile) continue;
+      
+      // Check floor range overlap
+      const overlapStart = Math.max(minFloor, shaft.minFloor);
+      const overlapEnd = Math.min(maxFloor, shaft.maxFloor);
+      
+      if (overlapStart <= overlapEnd) {
+        // Overlapping range found
+        return true;
+      }
+    }
+    
+    // No overlaps
+    return false;
+  });
+  
   // Connect elevator demolish callback
   placer.setElevatorDemolishedCallback((tile, floor) => {
     const elevatorSystem = game.getElevatorSystem();
@@ -288,6 +312,7 @@ async function main() {
 
   // Add Building Tooltip
   const buildingTooltip = new BuildingTooltip();
+  buildingTooltip.setEvaluationSystem(game.getEvaluationSystem());
 
   // Add tutorial overlay
   const tutorial = new TutorialOverlay();

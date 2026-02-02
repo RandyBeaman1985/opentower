@@ -106,6 +106,9 @@ export class BuildingPlacer {
   
   // Callback for elevator demolish (so index.ts can remove the shaft)
   private onElevatorDemolished: ((tile: number, floor: number) => { success: boolean; refund: number }) | null = null;
+  
+  // Callback to check if elevator overlaps (injected from index.ts)
+  private onCheckElevatorOverlap: ((tile: number, minFloor: number, maxFloor: number) => boolean) | null = null;
 
   // Demolish mode state
   private demolishMode: boolean = false;
@@ -176,6 +179,11 @@ export class BuildingPlacer {
   /** Set callback for elevator demolish */
   setElevatorDemolishedCallback(callback: (tile: number, floor: number) => { success: boolean; refund: number }): void {
     this.onElevatorDemolished = callback;
+  }
+  
+  /** Set callback for elevator overlap checking */
+  setElevatorOverlapCallback(callback: (tile: number, minFloor: number, maxFloor: number) => boolean): void {
+    this.onCheckElevatorOverlap = callback;
   }
 
   /** Set tower reference for validation */
@@ -357,22 +365,48 @@ export class BuildingPlacer {
     const pixelWidth = width * RENDER_CONSTANTS.TILE_WIDTH;
     const pixelHeight = height * RENDER_CONSTANTS.FLOOR_HEIGHT;
 
-    // Draw ghost rectangle
-    const color = valid ? (this.selectedType === 'elevator' ? 0x4a9eff : BUILDING_COLORS[this.selectedType as BuildingType]) : 0xff0000;
-    const alpha = valid ? 0.5 : 0.3;
+    // Draw ghost rectangle with better visuals
+    const color = valid ? 
+      (this.selectedType === 'elevator' ? 0x4a9eff : BUILDING_COLORS[this.selectedType as BuildingType]) : 
+      0xff0000;
+    const alpha = valid ? 0.65 : 0.4;
 
+    // Main fill
     this.ghostGraphics.rect(x, y, pixelWidth, pixelHeight);
     this.ghostGraphics.fill({ color, alpha });
     
-    // Draw border
+    // Inner shadow effect
+    this.ghostGraphics.rect(x + 2, y + 2, pixelWidth - 4, pixelHeight - 4);
+    this.ghostGraphics.fill({ color: 0x000000, alpha: 0.15 });
+    
+    // Border with glow effect
     this.ghostGraphics.setStrokeStyle({ 
-      width: 2, 
-      color: valid ? 0x00ff00 : 0xff0000,
-      alpha: 0.8 
+      width: 3, 
+      color: valid ? 0x66BB6A : 0xEF5350,
+      alpha: 1.0 
     });
     this.ghostGraphics.stroke();
+    
+    // Outer glow
+    this.ghostGraphics.setStrokeStyle({ 
+      width: 6, 
+      color: valid ? 0x66BB6A : 0xEF5350,
+      alpha: 0.3 
+    });
+    this.ghostGraphics.rect(x - 1, y - 1, pixelWidth + 2, pixelHeight + 2);
+    this.ghostGraphics.stroke();
+    
+    // Grid lines for multi-tile buildings
+    if (width > 1) {
+      this.ghostGraphics.setStrokeStyle({ width: 1, color: 0xffffff, alpha: 0.2 });
+      for (let i = 1; i < width; i++) {
+        const tileX = x + (i * RENDER_CONSTANTS.TILE_WIDTH);
+        this.ghostGraphics.moveTo(tileX, y);
+        this.ghostGraphics.lineTo(tileX, y + pixelHeight);
+        this.ghostGraphics.stroke();
+      }
+    }
 
-    // Add label
     this.ghostContainer.visible = true;
   }
 
@@ -457,36 +491,55 @@ export class BuildingPlacer {
     const pixelWidth = RENDER_CONSTANTS.TILE_WIDTH; // 1 tile wide
     const pixelHeight = (maxFloor - minFloor + 1) * RENDER_CONSTANTS.FLOOR_HEIGHT;
 
-    // Draw shaft
+    // Draw shaft with better visuals
     const color = valid ? 0x4a9eff : 0xff0000;
-    const alpha = valid ? 0.6 : 0.3;
+    const alpha = valid ? 0.7 : 0.4;
 
+    // Main fill
     this.ghostGraphics.rect(x, yTop, pixelWidth, pixelHeight);
     this.ghostGraphics.fill({ color, alpha });
     
-    // Draw border
+    // Inner shadow
+    this.ghostGraphics.rect(x + 2, yTop + 2, pixelWidth - 4, pixelHeight - 4);
+    this.ghostGraphics.fill({ color: 0x000000, alpha: 0.15 });
+    
+    // Border with glow
     this.ghostGraphics.setStrokeStyle({ 
       width: 3, 
-      color: valid ? 0x00ff00 : 0xff0000,
-      alpha: 0.9 
+      color: valid ? 0x66BB6A : 0xEF5350,
+      alpha: 1.0 
     });
+    this.ghostGraphics.rect(x, yTop, pixelWidth, pixelHeight);
+    this.ghostGraphics.stroke();
+    
+    // Outer glow
+    this.ghostGraphics.setStrokeStyle({ 
+      width: 6, 
+      color: valid ? 0x66BB6A : 0xEF5350,
+      alpha: 0.3 
+    });
+    this.ghostGraphics.rect(x - 1, yTop - 1, pixelWidth + 2, pixelHeight + 2);
     this.ghostGraphics.stroke();
 
-    // Draw floor indicators
+    // Draw floor indicators with better styling
     for (let floor = minFloor; floor <= maxFloor; floor++) {
       const y = floor * RENDER_CONSTANTS.FLOOR_HEIGHT;
-      this.ghostGraphics.setStrokeStyle({ width: 1, color: 0xffffff, alpha: 0.3 });
+      this.ghostGraphics.setStrokeStyle({ width: 1, color: 0xffffff, alpha: 0.4 });
       this.ghostGraphics.moveTo(x, y);
       this.ghostGraphics.lineTo(x + pixelWidth, y);
       this.ghostGraphics.stroke();
+      
+      // Add small floor number indicator (visual tick)
+      this.ghostGraphics.circle(x + pixelWidth / 2, y, 2);
+      this.ghostGraphics.fill({ color: 0xffffff, alpha: 0.6 });
     }
 
     // Calculate and show cost
     const cost = this.getElevatorCost(minFloor, maxFloor);
     const floorCount = maxFloor - minFloor + 1;
     
-    // Add cost label (would need PIXI.Text, for now just visual)
-    console.log(`Elevator preview: ${floorCount} floors, $${cost.toLocaleString()}`);
+    // Add visual indicator for cost (would need PIXI.Text for full implementation)
+    console.log(`🛗 Elevator preview: ${floorCount} floors, $${cost.toLocaleString()}`);
 
     this.ghostContainer.visible = true;
   }
@@ -551,8 +604,15 @@ export class BuildingPlacer {
       return false;
     }
 
-    // TODO: Check overlap with existing elevators
-    // (This would require access to ElevatorSystem, which we'll handle in index.ts)
+    // ✅ FIX: Check overlap with existing elevators
+    if (this.onCheckElevatorOverlap) {
+      const hasOverlap = this.onCheckElevatorOverlap(tile, minFloor, maxFloor);
+      if (hasOverlap) {
+        this.errorMessage = '⚠️ Elevator overlaps with existing shaft';
+        console.warn(`⚠️ Elevator overlaps at tile ${tile}, floors ${minFloor}-${maxFloor}`);
+        return false;
+      }
+    }
 
     return true;
   }

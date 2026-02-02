@@ -13,9 +13,14 @@ import { Camera } from './Camera';
 import { getEventBus } from '@core/EventBus';
 import { PeopleRenderer } from './PeopleRenderer';
 import { ElevatorRenderer } from './ElevatorRenderer';
+import { SimulationEffectsRenderer } from './SimulationEffectsRenderer';
+import { BuildingLightsRenderer } from './BuildingLightsRenderer';
+import { DayNightOverlay } from './DayNightOverlay';
+import { BuildingSprites } from './BuildingSprites';
 import type { Person } from '@/entities/Person';
 import type { ElevatorShaft } from '@/entities/ElevatorShaft';
 import type { TimeOfDayState } from '@simulation/TimeOfDaySystem';
+import type { PersonAIData } from '@/simulation/PopulationAI';
 
 /**
  * Rendering constants (HD at 2x original resolution)
@@ -70,6 +75,9 @@ export class TowerRenderer {
   // Renderers
   private peopleRenderer: PeopleRenderer;
   private elevatorRenderer: ElevatorRenderer;
+  private simulationEffectsRenderer: SimulationEffectsRenderer;
+  private buildingLightsRenderer: BuildingLightsRenderer;
+  private dayNightOverlay: DayNightOverlay;
 
   // Debug mode
   private debugMode: boolean = false;
@@ -111,6 +119,9 @@ export class TowerRenderer {
     // Create renderers
     this.peopleRenderer = new PeopleRenderer(this.peopleLayer);
     this.elevatorRenderer = new ElevatorRenderer(this.buildingLayer); // Elevators on building layer
+    this.simulationEffectsRenderer = new SimulationEffectsRenderer(this.effectsLayer);
+    this.buildingLightsRenderer = new BuildingLightsRenderer(this.effectsLayer);
+    this.dayNightOverlay = new DayNightOverlay(this.effectsLayer, app.screen.width, app.screen.height);
 
     // Initialize sky
     this.drawSky();
@@ -339,220 +350,35 @@ export class TowerRenderer {
   }
 
   /**
-   * Render a single building
+   * Render a single building - using enhanced BuildingSprites system
    */
   renderBuilding(building: Building, showLights: boolean = false): PIXI.Container {
     // Check if we already have a sprite for this building
     let container = this.buildingSprites.get(building.id);
 
     if (!container) {
-      container = new PIXI.Container();
+      // Create wrapper container for positioning
+      const wrapper = new PIXI.Container();
 
       // Calculate position
       const x = building.position.startTile * RENDER_CONSTANTS.TILE_WIDTH;
       const y = building.position.floor * RENDER_CONSTANTS.FLOOR_HEIGHT;
 
-      container.x = x;
-      container.y = y;
+      wrapper.x = x;
+      wrapper.y = y;
 
-      // Draw building with textures
-      const graphics = new PIXI.Graphics();
-      const width = (building.position.endTile - building.position.startTile + 1) * RENDER_CONSTANTS.TILE_WIDTH;
-      const height = building.height * RENDER_CONSTANTS.FLOOR_HEIGHT;
-
-      // Building color based on type
-      const color = this.getBuildingColor(building.type);
-      
-      // Main building body
-      graphics.rect(0, 0, width, height);
-      graphics.fill(color);
-      
-      // Add building-specific details (windows, doors, etc.)
-      this.addBuildingDetails(graphics, building, width, height, color, showLights);
-      
-      // Border
-      graphics.setStrokeStyle({ width: 1, color: 0x333333 });
-      graphics.rect(0, 0, width, height);
-      graphics.stroke();
-
-      container.addChild(graphics);
-
-      // Add label
-      const label = new PIXI.Text({
-        text: building.type.substring(0, 3).toUpperCase(),
-        style: {
-          fontSize: 10,
-          fill: 0xffffff,
-        },
-      });
-      label.x = 2;
-      label.y = 2;
-      container.addChild(label);
+      // Use BuildingSprites to create the enhanced visual
+      const buildingSprite = BuildingSprites.createBuildingSprite(building, { showLights });
+      wrapper.addChild(buildingSprite);
 
       // Store in cache
-      this.buildingSprites.set(building.id, container);
-      this.buildingLayer.addChild(container);
+      this.buildingSprites.set(building.id, wrapper);
+      this.buildingLayer.addChild(wrapper);
+      
+      container = wrapper;
     }
 
     return container;
-  }
-
-  /**
-   * Add visual details to buildings (windows, doors, etc.)
-   */
-  private addBuildingDetails(
-    graphics: PIXI.Graphics,
-    building: Building,
-    width: number,
-    height: number,
-    baseColor: number,
-    showLights: boolean = false
-  ): void {
-    // Add windows for office buildings
-    if (building.type === 'office') {
-      this.addWindowPattern(graphics, width, height, baseColor, showLights);
-    }
-    
-    // Add door for lobby/shops
-    if (building.type === 'lobby' || building.type === 'shop' || 
-        building.type === 'fastFood' || building.type === 'restaurant') {
-      this.addDoorIndicator(graphics, width, height);
-    }
-    
-    // Add window pattern for condos/hotels
-    if (building.type === 'condo' || building.type.includes('hotel')) {
-      this.addWindowPattern(graphics, width, height, baseColor, showLights);
-    }
-  }
-
-  /**
-   * Draw window pattern for buildings
-   */
-  private addWindowPattern(
-    graphics: PIXI.Graphics,
-    width: number,
-    height: number,
-    baseColor: number,
-    showLights: boolean = false
-  ): void {
-    // Window colors - dark at day, lit at night
-    const windowColor = showLights ? 0xFFD700 : this.darkenColor(baseColor, 0.3); // Yellow glow at night
-    const lightColor = this.lightenColor(baseColor, 0.2);
-    
-    // Window size and spacing
-    const windowWidth = 6;
-    const windowHeight = 8;
-    const windowSpacing = 10;
-    const topMargin = 8;
-    
-    // Draw windows in a grid
-    for (let x = windowSpacing / 2; x < width - windowWidth; x += windowSpacing) {
-      for (let y = topMargin; y < height - windowHeight; y += windowHeight + 4) {
-        // Window frame (light)
-        graphics.rect(x, y, windowWidth, windowHeight);
-        graphics.fill(lightColor);
-        
-        // Window glass (dark or lit)
-        graphics.rect(x + 1, y + 1, windowWidth - 2, windowHeight - 2);
-        if (showLights) {
-          // Lit windows at night with glow
-          graphics.fill({ color: windowColor, alpha: 0.9 });
-        } else {
-          // Dark windows during day
-          graphics.fill(windowColor);
-        }
-      }
-    }
-  }
-
-  /**
-   * Add door indicator at bottom of building
-   */
-  private addDoorIndicator(graphics: PIXI.Graphics, width: number, height: number): void {
-    const doorWidth = 12;
-    const doorHeight = 16;
-    const doorX = width / 2 - doorWidth / 2;
-    const doorY = height - doorHeight - 2;
-    
-    // Door frame (darker)
-    graphics.rect(doorX, doorY, doorWidth, doorHeight);
-    graphics.fill({ color: 0x4A3020, alpha: 0.8 });
-    
-    // Door panel (lighter brown)
-    graphics.rect(doorX + 2, doorY + 2, doorWidth - 4, doorHeight - 4);
-    graphics.fill({ color: 0x8B6F47, alpha: 0.9 });
-    
-    // Door knob
-    graphics.circle(doorX + doorWidth - 4, doorY + doorHeight / 2, 1.5);
-    graphics.fill({ color: 0xFFD700, alpha: 1 });
-  }
-
-  /**
-   * Darken a color by a factor (0-1)
-   */
-  private darkenColor(color: number, factor: number): number {
-    const r = Math.floor(((color >> 16) & 0xFF) * (1 - factor));
-    const g = Math.floor(((color >> 8) & 0xFF) * (1 - factor));
-    const b = Math.floor((color & 0xFF) * (1 - factor));
-    return (r << 16) | (g << 8) | b;
-  }
-
-  /**
-   * Lighten a color by a factor (0-1)
-   */
-  private lightenColor(color: number, factor: number): number {
-    const r = Math.min(255, Math.floor(((color >> 16) & 0xFF) * (1 + factor)));
-    const g = Math.min(255, Math.floor(((color >> 8) & 0xFF) * (1 + factor)));
-    const b = Math.min(255, Math.floor((color & 0xFF) * (1 + factor)));
-    return (r << 16) | (g << 8) | b;
-  }
-
-  /**
-   * Get color for building type (placeholder until sprites)
-   */
-  private getBuildingColor(type: Building['type']): number {
-    const colors: Record<string, number> = {
-      // Residential (warm earth tones)
-      lobby: 0xE8DCC8,      // Beige
-      condo: 0x8B7355,      // Brown
-      
-      // Commercial (cool blues)
-      office: 0x5B7C99,     // Muted blue
-      
-      // Food (warm inviting)
-      fastFood: 0xD97B5C,   // Terracotta
-      restaurant: 0xC87137, // Burnt orange
-      
-      // Retail (purple/pink)
-      shop: 0xA67C94,       // Mauve
-      
-      // Hotels (royal purples)
-      hotelSingle: 0x7B68A6, // Muted purple
-      hotelTwin: 0x6B4E8C,   // Deep purple
-      hotelSuite: 0x4A3766,  // Rich purple
-      
-      // Entertainment (golden)
-      partyHall: 0xD4AF37,  // Gold
-      cinema: 0x8B4513,     // Saddle brown
-      
-      // Infrastructure (greys)
-      stairs: 0x707070,     // Grey
-      escalator: 0x909090,  // Light grey
-      parkingRamp: 0x696969,
-      parkingSpace: 0x778899,
-      
-      // Services (teals/greens)
-      housekeeping: 0x5F9EA0, // Cadet blue
-      security: 0x2F4F4F,     // Dark slate
-      medical: 0xB22222,      // Firebrick
-      recycling: 0x556B2F,    // Dark olive
-      
-      // Special
-      metro: 0x36454F,        // Charcoal
-      cathedral: 0xB8860B,    // Dark goldenrod
-    };
-
-    return colors[type] ?? 0x999999;
   }
 
   /**
@@ -609,7 +435,15 @@ export class TowerRenderer {
   /**
    * Main render function - call each frame
    */
-  render(tower: Tower, _deltaTime: number, people?: Person[], elevatorShafts?: ElevatorShaft[], timeOfDayState?: TimeOfDayState): void {
+  render(
+    tower: Tower,
+    _deltaTime: number,
+    people?: Person[],
+    elevatorShafts?: ElevatorShaft[],
+    timeOfDayState?: TimeOfDayState,
+    aiData?: Map<string, PersonAIData>,
+    rushHourState?: 'morning' | 'lunch' | 'evening' | 'normal'
+  ): void {
     // Update sky gradient based on time of day
     if (timeOfDayState) {
       this.drawSky(timeOfDayState);
@@ -624,6 +458,15 @@ export class TowerRenderer {
     // Render buildings (with lights if night)
     this.renderAllBuildings(tower, timeOfDayState);
     
+    // Render building lights (on top of buildings)
+    if (timeOfDayState) {
+      const buildings = Object.values(tower.buildingsById) as Building[];
+      this.buildingLightsRenderer.update(buildings, {
+        hour: tower.clock.gameHour,
+        showLights: timeOfDayState.buildingsShowLights,
+      });
+    }
+    
     // Render elevators
     if (elevatorShafts) {
       this.elevatorRenderer.render(elevatorShafts);
@@ -632,6 +475,23 @@ export class TowerRenderer {
     // Render people (on top of elevators)
     if (people) {
       this.peopleRenderer.render(people);
+    }
+    
+    // Render simulation effects (mood indicators, occupancy, etc.)
+    if (people && aiData && rushHourState) {
+      const buildings = Object.values(tower.buildingsById) as Building[];
+      this.simulationEffectsRenderer.update(
+        people,
+        buildings,
+        aiData,
+        rushHourState,
+        { hour: tower.clock.gameHour, minute: tower.clock.gameMinute }
+      );
+    }
+    
+    // Update day/night overlay
+    if (timeOfDayState) {
+      this.dayNightOverlay.update(timeOfDayState);
     }
 
     // Update debug info if enabled

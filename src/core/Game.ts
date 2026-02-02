@@ -9,9 +9,11 @@
  * @module core/Game
  */
 
+import * as PIXI from 'pixi.js';
 import { Application } from 'pixi.js';
 import type { GameSpeed } from '@/interfaces';
 import { GamePhase } from '@/interfaces';
+import { BUILDING_CONFIGS } from '@/interfaces/buildings';
 import { getEventBus } from './EventBus';
 import { TowerManager } from '@simulation/Tower';
 import { TowerRenderer } from '@rendering/TowerRenderer';
@@ -26,6 +28,10 @@ import { RandomEventSystem } from '@simulation/RandomEventSystem';
 import { EvaluationSystem } from '@simulation/EvaluationSystem';
 import { OperatingCostSystem } from '@simulation/OperatingCostSystem';
 import { RushHourSystem } from '@simulation/RushHourSystem';
+import { ParticleEffect } from '@rendering/ParticleEffect';
+import { FloatingTextSystem } from '@rendering/FloatingText';
+import { GameFeelManager } from './GameFeelManager';
+import { GameHUD } from '@rendering/GameHUD';
 
 export interface GameConfig {
   /** Width of the game canvas */
@@ -74,9 +80,14 @@ export class Game {
   private rushHourSystem: RushHourSystem;
   private saveLoadManager: SaveLoadManager | null = null;
   private towerRenderer: TowerRenderer | null = null;
+  private particleEffect: ParticleEffect | null = null;
+  private floatingText: FloatingTextSystem | null = null;
+  private gameFeelManager: GameFeelManager | null = null;
+  private gameHUD: GameHUD | null = null;
   private state: GameState = GameState.INITIALIZING;
   private frameId: number | null = null;
   private currentTick: number = 0;
+  private previousStarRating: number = 1;
 
   // Performance tracking
   private lastFrameTime = 0;
@@ -153,13 +164,56 @@ export class Game {
       this.towerRenderer.setDebugMode(true);
     }
 
+    // Initialize game feel systems (juice & polish!)
+    const effectsLayer = this.towerRenderer.getWorldContainer();
+    const uiLayer = new PIXI.Container();
+    this.app.stage.addChild(uiLayer);
+    
+    this.particleEffect = new ParticleEffect(effectsLayer);
+    this.floatingText = new FloatingTextSystem(uiLayer);
+    this.gameFeelManager = new GameFeelManager(this.particleEffect, this.floatingText);
+    this.gameHUD = new GameHUD(uiLayer);
+
     // Initialize save/load manager
     this.saveLoadManager = new SaveLoadManager(
       this.towerManager,
       this.populationSystem,
       this.elevatorSystem,
-      this.economicSystem
+      this.economicSystem,
+      this.timeSystem // 🆕 BUG-020 FIX: Pass timeSystem for game speed saving
     );
+    
+    // Setup event listeners for game feel
+    this.setupGameFeelEvents();
+  }
+
+  /**
+   * Setup game feel event listeners
+   */
+  private setupGameFeelEvents(): void {
+    const eventBus = getEventBus();
+    
+    // Listen for building placement
+    eventBus.on('BUILDING_PLACED', (event) => {
+      if (this.gameFeelManager && event.type === 'BUILDING_PLACED') {
+        const tower = this.towerManager.getTower();
+        const building = tower.buildingsById[event.buildingId];
+        if (building) {
+          this.gameFeelManager.onBuildingPlaced(building);
+        }
+      }
+    });
+    
+    // Listen for building demolition
+    eventBus.on('BUILDING_DEMOLISHED', (event) => {
+      if (this.gameFeelManager && event.type === 'BUILDING_DEMOLISHED') {
+        const tower = this.towerManager.getTower();
+        const building = tower.buildingsById[event.buildingId];
+        if (building) {
+          this.gameFeelManager.onBuildingDemolished(building);
+        }
+      }
+    });
   }
 
   /**
@@ -172,6 +226,9 @@ export class Game {
     this.timeSystem.start();
     this.lastFrameTime = performance.now();
     this.frameCount = 0;
+    
+    // Initialize previous star rating
+    this.previousStarRating = this.towerManager.getTower().starRating;
 
     this.gameLoop(this.lastFrameTime);
   }
@@ -266,12 +323,14 @@ export class Game {
     const clock = this.timeSystem.getClock();
     const gameSpeed = clock.speed;
 
-    // Update elevators
-    this.elevatorSystem.update(tower, gameSpeed);
-
-    // Update rush hour system (spawn workers at lobby during morning rush, send them home at evening)
+    // Get people map for cross-system communication
     const people = this.populationSystem.getPeople();
     const peopleMap = new Map(people.map(p => [p.id, p]));
+
+    // Update elevators (pass peopleMap for give-up logic)
+    this.elevatorSystem.update(tower, gameSpeed, peopleMap);
+
+    // Update rush hour system (spawn workers at lobby during morning rush, send them home at evening)
     const newWorkers = this.rushHourSystem.update(tower, clock, peopleMap, this.elevatorSystem);
     
     // Add newly spawned workers to PopulationSystem
@@ -341,8 +400,8 @@ export class Game {
       
       // CONDOS: Red evaluation (<30%) → forced buyback
       if (building.type === 'condo' && evaluation < 30 && building.state === 'active') {
-        // Force buyback at purchase price
-        const buybackCost = 100000; // TODO: Get actual sale price from building data
+        // Force buyback at purchase price (use actual config cost)
+        const buybackCost = BUILDING_CONFIGS[building.type].cost;
         this.towerManager.modifyFunds(-buybackCost);
         building.state = 'vacant';
         building.occupantIds = [];
@@ -385,6 +444,15 @@ export class Game {
 
     // Update tower star rating
     this.towerManager.updateStarRatingFactors(happinessPercent, dailyIncome);
+    
+    // Check for star rating increase (CELEBRATION!)
+    const currentStars = this.towerManager.getTower().starRating;
+    if (currentStars > this.previousStarRating && this.gameFeelManager && this.app) {
+      const screenCenterX = this.app.screen.width / 2;
+      const screenCenterY = this.app.screen.height / 2;
+      this.gameFeelManager.onStarRatingUp(currentStars, screenCenterX, screenCenterY);
+      this.previousStarRating = currentStars;
+    }
   }
 
   /**
@@ -409,9 +477,51 @@ export class Game {
     const people = this.populationSystem.getPeople();
     const elevatorShafts = this.elevatorSystem.getShafts();
     const timeOfDayState = this.timeSystem.getTimeOfDayState();
+    const aiData = this.populationSystem.getAIData();
+    const rushHourState = this.rushHourSystem.getRushHourState(tower.clock);
     const deltaTime = 1 / 60; // Assuming 60fps for camera updates
 
-    this.towerRenderer.render(tower, deltaTime, people, elevatorShafts, timeOfDayState);
+    this.towerRenderer.render(tower, deltaTime, people, elevatorShafts, timeOfDayState, aiData, rushHourState);
+    
+    // Update game feel effects (particles, floating text)
+    if (this.gameFeelManager) {
+      this.gameFeelManager.update();
+    }
+    
+    // Update HUD
+    if (this.gameHUD) {
+      const clock = this.timeSystem.getClock();
+      const dateStr = `Day ${clock.gameDay}, ${clock.gameHour}:${clock.gameMinute.toString().padStart(2, '0')}`;
+      
+      // Calculate next star requirement
+      const nextStarReq = this.getNextStarRequirement(tower.starRating, tower.population);
+      
+      this.gameHUD.update(tower, dateStr, tower.starRating, nextStarReq);
+    }
+  }
+  
+  /**
+   * Get requirements for next star rating
+   */
+  private getNextStarRequirement(currentStars: number, currentPopulation: number): { current: number; required: number; label: string } | undefined {
+    const requirements = [
+      { stars: 1, population: 0, label: '1★ Tower' },
+      { stars: 2, population: 300, label: '2★ Tower' },
+      { stars: 3, population: 1000, label: '3★ Tower' },
+      { stars: 4, population: 5000, label: '4★ Tower' },
+      { stars: 5, population: 10000, label: '5★ Tower' },
+    ];
+    
+    const nextReq = requirements.find(r => r.stars > currentStars);
+    if (nextReq) {
+      return {
+        current: currentPopulation,
+        required: nextReq.population,
+        label: `Next: ${nextReq.label}`,
+      };
+    }
+    
+    return undefined; // Max stars reached
   }
 
   /**

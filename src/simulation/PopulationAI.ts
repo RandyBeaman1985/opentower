@@ -180,7 +180,7 @@ export class PopulationAI {
     }
     
     // Update needs (natural decay)
-    this.updateNeeds(aiData, person, currentTick);
+    this.updateNeeds(aiData, person, currentTick, clock);
     
     // Update satisfaction based on current state
     this.updateSatisfaction(aiData, person, currentTick, tower);
@@ -198,9 +198,9 @@ export class PopulationAI {
   /**
    * Update person's needs over time
    */
-  private updateNeeds(aiData: PersonAIData, person: Person, currentTick: number): void {
+  private updateNeeds(aiData: PersonAIData, person: Person, currentTick: number, clock: GameClock): void {
     const needs = aiData.needs;
-    const gameSpeed = 1; // TODO: Get from clock
+    const gameSpeed = clock.speed; // Game speed affects decay rate (0, 1, 2, or 4)
     
     // Decay needs based on activity
     switch (person.state) {

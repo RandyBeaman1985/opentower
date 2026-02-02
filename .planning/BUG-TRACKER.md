@@ -15,6 +15,157 @@
 
 ## Open Bugs
 
+### BUG-020: Game Speed Not Saved ✅ FIXED
+- **Severity:** High (gameplay disruption)
+- **Found:** 2026-02-02, Playtest Cron (Code Review)
+- **Status:** **FIXED** in v0.8.2 (2026-02-02, 10 AM MST)
+- **Description:** Game speed setting (0/1/2/4) is not serialized by SaveLoadManager. Speed resets to 1 on every load.
+- **Repro:**
+  1. Set game to speed 4 (fastest)
+  2. Save game (Ctrl+S)
+  3. Reload page
+  4. Speed resets to 1
+- **Root Cause:** SaveLoadManager didn't serialize TimeSystem state
+- **Fix Applied:**
+  - Added `TimeSystem` to SaveLoadManager constructor
+  - Added `timeSystemState` field to SaveData interface
+  - Serialize: `timeSystemState: this.timeSystem.serialize()`
+  - Deserialize: `this.timeSystem.deserialize(saveData.timeSystemState)`
+  - Updated Game.ts to pass timeSystem to SaveLoadManager
+- **Files Changed:** `SaveLoadManager.ts`, `Game.ts`
+- **Testing:** Needs manual verification (set speed → save → reload → check)
+
+### BUG-021: Day 0 Treated as Weekend ✅ FIXED
+- **Severity:** Critical (breaks new player experience)
+- **Found:** 2026-02-02, Playtest Cron (Code Review)
+- **Status:** **FIXED** in v0.8.2 (2026-02-02, 10 AM MST)
+- **Description:** New games start at Day 0, but RushHourSystem treats it as weekend → no workers spawn at 7:30 AM → confusing!
+- **Repro:**
+  1. Start new game (Day 0)
+  2. Place office buildings
+  3. Wait until 7:30 AM
+  4. No workers spawn (because Day 0 < 1, treated as weekend)
+- **Root Cause:** `RushHourSystem.ts:68` - `const isWeekday = clock.gameDay >= 1 && clock.gameDay <= 5`
+- **Fix Applied:**
+  - Changed to modulo-based week cycling: `const dayOfWeek = clock.gameDay % 7`
+  - Weekdays: `dayOfWeek >= 0 && dayOfWeek <= 4` (Mon-Fri: 0-4)
+  - Weekends: `dayOfWeek === 5 || dayOfWeek === 6` (Sat-Sun: 5-6)
+  - Day 0 = 0 % 7 = 0 = Monday → morning rush works!
+- **Files Changed:** `RushHourSystem.ts`
+- **Testing:** Needs manual verification (new game → wait for 7:30 AM → check workers spawn)
+
+### BUG-022: TypeScript Compilation Errors Ignored
+- **Severity:** Medium (technical debt)
+- **Found:** 2026-02-02, Playtest Cron (Build Analysis)
+- **Status:** Open
+- **Description:** Progress log mentions "23 minor pre-existing errors" that were ignored. Vite dev works but type safety compromised.
+- **Impact:** 
+  - Could miss real bugs at compile time
+  - Harder for contributors to understand correct API usage
+  - CI/CD might fail on stricter TS configs
+- **Root Cause:** Interface definitions don't match implementation in several systems
+- **Fix Needed:** Systematic cleanup of type mismatches (see v0.7.2 for examples)
+
+### BUG-023: No Elevator Height Limit Validation
+- **Severity:** Medium
+- **Found:** 2026-02-02, Playtest Cron (Code Review)
+- **Status:** Open (BUG-009 from Jan 31 never verified fixed)
+- **Description:** SimTower limited elevators to 30 floors max. Current BuildingPlacer might allow unlimited height.
+- **Repro:** Place elevator from floor 1 to floor 50 (needs runtime testing)
+- **Expected:** Should reject placement with error "Elevators limited to 30 floors"
+- **Root Cause:** No validation in `BuildingPlacer.isValidElevatorPlacement()` or `ElevatorShaft` constructor
+- **Fix Needed:** Add check: `if (maxFloor - minFloor > 30) return { valid: false, reason: "Max 30 floors" }`
+
+### BUG-024: Population Cap Not Centralized ✅ FIXED
+- **Severity:** Medium
+- **Found:** 2026-02-02, Playtest Cron (Code Review)
+- **Status:** **FIXED** in v0.8.2 (2026-02-02, 10 AM MST)
+- **Description:** v0.7.4 added 10K population cap to `processImmigration()`, but other spawn paths might bypass it.
+- **Edge Cases:**
+  - Debug button "+ Spawn Workers" (if still exists)
+  - Manual `PopulationSystem.addPerson()` calls
+  - RushHourSystem spawning workers
+- **Root Cause:** Cap check was in one method, not enforced at `addPerson()` level
+- **Fix Applied:**
+  - Moved `MAX_POPULATION = 10000` to module-level constant
+  - Added guard clause to `addPerson()`: returns `false` if cap reached
+  - Logs warning: "⚠️ Population cap reached (10000). Cannot add person."
+  - Changed return type from `void` to `boolean` for caller feedback
+- **Files Changed:** `PopulationSystem.ts`
+- **Testing:** Needs manual verification (spawn 10K people → verify cap enforcement)
+
+### BUG-025: Evaluation Scores Invisible in UI ✅ FIXED
+- **Severity:** Medium (UX blocker)
+- **Found:** 2026-02-02, Playtest Cron (Code Review)
+- **Status:** **FIXED** in v0.8.8 (2026-02-02, 11:06 AM MST)
+- **Description:** EvaluationSystem calculates building satisfaction (0-100%) but no UI displays scores. Players can't see WHY buildings fail.
+- **Impact:** 
+  - No feedback loop for optimization
+  - Can't diagnose bad elevator placement
+  - Tenant departures feel random
+- **Root Cause:** BuildingTooltip never accessed EvaluationSystem data
+- **Fix Applied:**
+  - Added `setEvaluationSystem()` method to BuildingTooltip
+  - Wired up evaluation system in index.ts
+  - Tooltip now displays:
+    - Color-coded evaluation bar (Blue 70-100%, Yellow 40-69%, Red 0-39%)
+    - Numeric score percentage
+    - Visual progress bar
+    - "Excellent" / "Fair" / "Poor" label
+    - **Detailed factor breakdown** showing penalties:
+      - Elevator wait time
+      - Walking distance
+      - Noise
+      - Rent level
+      - Missing services
+  - Only shows negative factors (problems to fix)
+- **Files Changed:** `BuildingTooltip.ts`, `index.ts`
+- **Testing:** See `TESTING-v0.8.8.md` for comprehensive test guide
+- **Fixed By:** v0.8.8, 2026-02-02 11:06 AM MST (Cron Job)
+
+### BUG-026: No Sound for Weekend Shift
+- **Severity:** Low (polish)
+- **Found:** 2026-02-02, Playtest Cron (Code Review)
+- **Status:** Open
+- **Description:** Weekend shift triggers with notification but no unique sound effect (uses same sound as weekday rush)
+- **Impact:** Less audio juice on weekends
+- **Fix Needed:** Add subtle "lazy morning" sound effect or different notification tone for `triggerWeekendShift()`
+
+### BUG-027: Elevator Give-Up Count Not Visible
+- **Severity:** Low (UX)
+- **Found:** 2026-02-02, Playtest Cron (Code Review)
+- **Status:** Open
+- **Description:** v0.8.2 added elevator give-up logic with thought bubbles, but no UI counter shows how many people gave up.
+- **Impact:** Players can't quantify elevator capacity problems
+- **Fix Needed:** Add stat to elevator info panel or HUD: "X people gave up waiting today"
+
+### BUG-028: No Visual Indicator for Weekend
+- **Severity:** Low (UX)
+- **Found:** 2026-02-02, Playtest Cron (Code Review)
+- **Status:** Open
+- **Description:** Weekend schedules work (reduced staff) but HUD doesn't show "WEEKEND" label. Players might not notice.
+- **Impact:** Reduced weekend staff might feel like a bug instead of a feature
+- **Fix Needed:** Add day-of-week to time display - "Monday 8:32 AM" vs "Saturday 10:15 AM - WEEKEND"
+
+### BUG-019: Elevators Can Overlap ✅ FIXED
+- **Severity:** Medium (exploit + visual bug)
+- **Found:** 2026-02-02, Cron Build Session (TODO in code)
+- **Status:** **FIXED** in v0.8.1
+- **Description:** Players can place unlimited elevators at the same tile position. No overlap validation during placement.
+- **Root Cause:** BuildingPlacer.ts had TODO comment but no actual overlap checking
+- **Repro:**
+  1. Place elevator at tile 50, floors 1-10
+  2. Place another elevator at tile 50, floors 5-15
+  3. Both elevators exist, overlapping visually and functionally
+- **Fix Implemented:**
+  - Added `setElevatorOverlapCallback()` to BuildingPlacer
+  - Implemented overlap detection in index.ts
+  - Algorithm checks tile position + floor range overlap
+  - Ghost preview shows red when overlap detected
+  - Error message: "⚠️ Elevator overlaps with existing shaft"
+  - Console warning logs the conflict
+- **Fixed By:** v0.8.1, 2026-02-02 8:00 AM MST
+
 ### BUG-015: Stress Doesn't Decay Over Time ✅ FIXED
 - **Severity:** Medium (gameplay balance)
 - **Found:** 2026-02-01, Playtest Session #2

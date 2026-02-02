@@ -16,6 +16,7 @@ import { TowerManager } from '@simulation/Tower';
 import { PopulationSystem } from '@simulation/PopulationSystem';
 import { ElevatorSystem } from '@simulation/ElevatorSystem';
 import { EconomicSystem } from '@simulation/EconomicSystem';
+import { TimeSystem } from '@simulation/TimeSystem';
 
 const SAVE_KEY = 'opentower_save_v1';
 const AUTOSAVE_INTERVAL = 3 * 60 * 1000; // 3 minutes in milliseconds
@@ -38,6 +39,11 @@ export interface SaveData {
     quarterlyIncome: number;
     quarterlyExpenses: number;
   };
+  // 🆕 BUG-020 FIX: Save game speed and time state
+  timeSystemState: {
+    clock: any;
+    timeOfDay: any;
+  };
 }
 
 export class SaveLoadManager {
@@ -45,6 +51,7 @@ export class SaveLoadManager {
   private populationSystem: PopulationSystem;
   private elevatorSystem: ElevatorSystem;
   private economicSystem: EconomicSystem;
+  private timeSystem: TimeSystem;
   private autoSaveTimer: number | null = null;
   private playtimeStart: number;
   private totalPlaytime: number = 0;
@@ -53,12 +60,14 @@ export class SaveLoadManager {
     towerManager: TowerManager,
     populationSystem: PopulationSystem,
     elevatorSystem: ElevatorSystem,
-    economicSystem: EconomicSystem
+    economicSystem: EconomicSystem,
+    timeSystem: TimeSystem
   ) {
     this.towerManager = towerManager;
     this.populationSystem = populationSystem;
     this.elevatorSystem = elevatorSystem;
     this.economicSystem = economicSystem;
+    this.timeSystem = timeSystem;
     this.playtimeStart = Date.now();
   }
 
@@ -75,6 +84,7 @@ export class SaveLoadManager {
         populationState: this.populationSystem.serialize(),
         elevatorState: this.elevatorSystem.serialize(),
         economicState: this.economicSystem.serialize(),
+        timeSystemState: this.timeSystem.serialize(), // 🆕 BUG-020 FIX
       };
 
       const json = JSON.stringify(saveData);
@@ -118,6 +128,11 @@ export class SaveLoadManager {
       this.populationSystem.deserialize(saveData.populationState);
       this.elevatorSystem.deserialize(saveData.elevatorState);
       this.economicSystem.deserialize(saveData.economicState);
+      
+      // 🆕 BUG-020 FIX: Restore game speed and time state
+      if (saveData.timeSystemState) {
+        this.timeSystem.deserialize(saveData.timeSystemState);
+      }
 
       // Restore playtime
       this.totalPlaytime = saveData.playtime;

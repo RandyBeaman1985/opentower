@@ -57,22 +57,47 @@ export class RushHourSystem {
     people: Map<string, Person>,
     elevatorSystem: ElevatorSystem
   ): Person[] {
-    const isWeekday = clock.gameDay >= 1 && clock.gameDay <= 5;
-    if (!isWeekday) return []; // No rush hours on weekends (TODO: implement weekend schedule)
-
+    // 🆕 BUG-021 FIX: Use modulo-based week cycling
+    // Day 0-4 = weekday (Mon-Fri), Day 5-6 = weekend (Sat-Sun)
+    // This ensures Day 0 (new game start) is treated as Monday
+    const dayOfWeek = clock.gameDay % 7;
+    const isWeekday = dayOfWeek >= 0 && dayOfWeek <= 4;
+    const isWeekend = !isWeekday;
+    
     const currentTime = { hour: clock.gameHour, minute: clock.gameMinute };
     let newWorkers: Person[] = [];
 
-    // MORNING RUSH: Spawn workers at lobby
-    if (this.isTimeFor(currentTime, this.config.morningStart) && this.lastMorningRush !== clock.gameDay) {
-      newWorkers = this.triggerMorningRush(tower, people, elevatorSystem);
-      this.lastMorningRush = clock.gameDay;
-    }
+    // WEEKDAY SCHEDULE: Regular 7:30 AM - 5:00 PM
+    if (isWeekday) {
+      // MORNING RUSH: Spawn workers at lobby
+      if (this.isTimeFor(currentTime, this.config.morningStart) && this.lastMorningRush !== clock.gameDay) {
+        newWorkers = this.triggerMorningRush(tower, people, elevatorSystem);
+        this.lastMorningRush = clock.gameDay;
+      }
 
-    // EVENING RUSH: Send workers home
-    if (this.isTimeFor(currentTime, this.config.eveningStart) && this.lastEveningRush !== clock.gameDay) {
-      this.triggerEveningRush(tower, people, elevatorSystem);
-      this.lastEveningRush = clock.gameDay;
+      // EVENING RUSH: Send workers home
+      if (this.isTimeFor(currentTime, this.config.eveningStart) && this.lastEveningRush !== clock.gameDay) {
+        this.triggerEveningRush(tower, people, elevatorSystem);
+        this.lastEveningRush = clock.gameDay;
+      }
+    }
+    
+    // WEEKEND SCHEDULE: Reduced staff (30%), 10:00 AM - 3:00 PM
+    else if (isWeekend) {
+      const weekendMorning = { hour: 10, minute: 0 };
+      const weekendEvening = { hour: 15, minute: 0 };
+      
+      // Weekend morning arrival (fewer workers)
+      if (this.isTimeFor(currentTime, weekendMorning) && this.lastMorningRush !== clock.gameDay) {
+        newWorkers = this.triggerWeekendShift(tower, people, elevatorSystem);
+        this.lastMorningRush = clock.gameDay;
+      }
+      
+      // Weekend early departure
+      if (this.isTimeFor(currentTime, weekendEvening) && this.lastEveningRush !== clock.gameDay) {
+        this.triggerEveningRush(tower, people, elevatorSystem);
+        this.lastEveningRush = clock.gameDay;
+      }
     }
 
     // LUNCH RUSH: Trigger in PopulationAI (already handled)
@@ -143,6 +168,67 @@ export class RushHourSystem {
     });
 
     console.log(`🌅 MORNING RUSH: ${newWorkers.length} workers spawned at lobby`);
+    return newWorkers;
+  }
+
+  /**
+   * Trigger weekend shift - spawn reduced staff (30% of offices)
+   * Returns new workers to be added to PopulationSystem
+   */
+  private triggerWeekendShift(
+    tower: Tower,
+    people: Map<string, Person>,
+    elevatorSystem: ElevatorSystem
+  ): Person[] {
+    const offices = this.getOfficeBuildings(tower);
+    if (offices.length === 0) return [];
+
+    // Only 30% of offices have staff on weekends
+    const staffedOfficeCount = Math.max(1, Math.floor(offices.length * 0.3));
+    const staffedOffices = offices.slice(0, staffedOfficeCount);
+
+    const newWorkers: Person[] = [];
+    const lobby = tower.floorsById[0]; // Ground floor
+
+    for (const office of staffedOffices) {
+      // Fewer workers per office on weekends (1-2 instead of 3)
+      const workersPerOffice = 1;
+      const workerIds: string[] = [];
+
+      for (let i = 0; i < workersPerOffice; i++) {
+        const lobbyTile = 5; // Center of lobby
+        const worker = new Person({
+          type: 'worker',
+          floor: 0,
+          tile: lobbyTile,
+          schedule: {
+            personType: 'worker',
+            events: [
+              { hour: 15, minute: 0, action: 'leave', weekdayOnly: false }, // Leave at 3 PM
+            ],
+          },
+        });
+
+        worker.destinationBuildingId = office.id;
+        worker.state = 'walking';
+
+        newWorkers.push(worker);
+        workerIds.push(worker.id);
+        this.activeWorkers.add(worker.id);
+      }
+
+      this.officeAssignments.set(office.id, workerIds);
+      office.occupantIds = workerIds;
+    }
+
+    // Notification
+    getEventBus().emitSync({
+      type: 'NOTIFICATION',
+      title: '☀️ Weekend Shift',
+      message: `${newWorkers.length} workers (reduced staff) arriving`,
+    });
+
+    console.log(`☀️ WEEKEND SHIFT: ${newWorkers.length} workers spawned (${staffedOfficeCount}/${offices.length} offices staffed)`);
     return newWorkers;
   }
 

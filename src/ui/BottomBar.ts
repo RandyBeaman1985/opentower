@@ -66,19 +66,20 @@ export class BottomBar {
       bottom: 0;
       left: 0;
       right: 0;
-      height: 60px;
-      background: linear-gradient(0deg, #2a2a2a 0%, #1a1a1a 100%);
+      height: 70px;
+      background: linear-gradient(0deg, #2c2c2c 0%, #1e1e1e 100%);
       color: white;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 10px;
-      font-family: 'Arial', sans-serif;
+      padding: 0 16px;
+      font-family: 'Segoe UI', 'Roboto', sans-serif;
       font-size: 13px;
-      box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.6);
       z-index: 9999;
       user-select: none;
-      border-top: 2px solid #444;
+      border-top: 3px solid #3a3a3a;
+      backdrop-filter: blur(10px);
     `;
   }
 
@@ -136,10 +137,10 @@ export class BottomBar {
     const area = document.createElement('div');
     area.style.cssText = `
       display: flex;
-      gap: 5px;
-      padding: 0 15px;
-      border-left: 2px solid #444;
-      border-right: 2px solid #444;
+      gap: 8px;
+      padding: 0 20px;
+      border-left: 3px solid rgba(255,255,255,0.1);
+      border-right: 3px solid rgba(255,255,255,0.1);
     `;
     
     const tools: Array<{ type: ToolType; label: string; icon: string; tooltip: string }> = [
@@ -163,47 +164,50 @@ export class BottomBar {
 
   private createToolButton(type: ToolType, label: string, icon: string, tooltip: string): HTMLButtonElement {
     const button = document.createElement('button');
-    button.innerHTML = `<div style="font-size: 18px;">${icon}</div><div style="font-size: 10px; margin-top: 2px;">${label}</div>`;
+    button.innerHTML = `<div style="font-size: 22px; margin-bottom: 2px;">${icon}</div><div style="font-size: 11px; font-weight: 600;">${label}</div>`;
     button.title = tooltip;
     button.style.cssText = `
-      width: 70px;
-      height: 50px;
-      background: #333;
+      width: 80px;
+      height: 56px;
+      background: linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 100%);
       color: white;
-      border: 2px solid #555;
-      border-radius: 5px;
+      border: 2px solid #4a4a4a;
+      border-radius: 8px;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
       font-family: inherit;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       padding: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     `;
     
     button.onmouseenter = () => {
       if (this.currentTool !== type) {
-        button.style.background = '#444';
-        button.style.borderColor = '#666';
-        button.style.transform = 'translateY(-2px)';
+        button.style.background = 'linear-gradient(180deg, #4a4a4a 0%, #3a3a3a 100%)';
+        button.style.borderColor = '#5a5a5a';
+        button.style.transform = 'translateY(-3px)';
+        button.style.boxShadow = '0 4px 12px rgba(0,0,0,0.4)';
       }
     };
     
     button.onmouseleave = () => {
       if (this.currentTool !== type) {
-        button.style.background = '#333';
-        button.style.borderColor = '#555';
+        button.style.background = 'linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 100%)';
+        button.style.borderColor = '#4a4a4a';
         button.style.transform = 'translateY(0)';
+        button.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
       }
     };
     
     button.onmousedown = () => {
-      button.style.transform = 'translateY(1px)';
+      button.style.transform = 'translateY(0px) scale(0.95)';
     };
     
     button.onmouseup = () => {
-      button.style.transform = this.currentTool === type ? 'translateY(0)' : 'translateY(-2px)';
+      button.style.transform = this.currentTool === type ? 'translateY(0)' : 'translateY(-3px)';
     };
     
     button.onclick = () => {
@@ -220,8 +224,8 @@ export class BottomBar {
     const area = document.createElement('div');
     area.style.cssText = `
       display: flex;
-      gap: 5px;
-      padding: 0 10px;
+      gap: 8px;
+      padding: 0 4px;
     `;
     
     const actions: Array<{ action: QuickAction; label: string; icon: string; tooltip: string }> = [
@@ -249,36 +253,39 @@ export class BottomBar {
     button.textContent = label;
     button.title = tooltip;
     button.style.cssText = `
-      width: 40px;
-      height: 40px;
-      background: #333;
+      width: 46px;
+      height: 46px;
+      background: linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 100%);
       color: white;
-      border: 2px solid #555;
-      border-radius: 5px;
+      border: 2px solid #4a4a4a;
+      border-radius: 8px;
       cursor: pointer;
-      font-size: 18px;
-      transition: all 0.2s ease;
+      font-size: 20px;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
       font-family: inherit;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     `;
     
     button.onmouseenter = () => {
-      button.style.background = '#444';
-      button.style.borderColor = '#666';
-      button.style.transform = 'translateY(-2px)';
+      button.style.background = 'linear-gradient(180deg, #4a4a4a 0%, #3a3a3a 100%)';
+      button.style.borderColor = '#5a5a5a';
+      button.style.transform = 'translateY(-3px) scale(1.05)';
+      button.style.boxShadow = '0 4px 12px rgba(0,0,0,0.4)';
     };
     
     button.onmouseleave = () => {
-      button.style.background = '#333';
-      button.style.borderColor = '#555';
-      button.style.transform = 'translateY(0)';
+      button.style.background = 'linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 100%)';
+      button.style.borderColor = '#4a4a4a';
+      button.style.transform = 'translateY(0) scale(1)';
+      button.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
     };
     
     button.onmousedown = () => {
-      button.style.transform = 'translateY(1px)';
+      button.style.transform = 'translateY(0px) scale(0.95)';
     };
     
     button.onmouseup = () => {
-      button.style.transform = 'translateY(-2px)';
+      button.style.transform = 'translateY(-3px) scale(1.05)';
     };
     
     button.onclick = () => {
@@ -302,34 +309,35 @@ export class BottomBar {
     button.textContent = musicPlayer.isEnabled() ? '🎵' : '🔇';
     button.title = 'Toggle background music (M)';
     button.style.cssText = `
-      width: 40px;
-      height: 40px;
-      background: ${musicPlayer.isEnabled() ? '#4CAF50' : '#333'};
+      width: 46px;
+      height: 46px;
+      background: ${musicPlayer.isEnabled() ? 'linear-gradient(180deg, #66BB6A 0%, #4CAF50 100%)' : 'linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 100%)'};
       color: white;
-      border: 2px solid ${musicPlayer.isEnabled() ? '#66BB6A' : '#555'};
-      border-radius: 5px;
+      border: 2px solid ${musicPlayer.isEnabled() ? '#81C784' : '#4a4a4a'};
+      border-radius: 8px;
       cursor: pointer;
-      font-size: 18px;
-      transition: all 0.2s ease;
+      font-size: 20px;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
       font-family: inherit;
+      box-shadow: ${musicPlayer.isEnabled() ? '0 2px 12px rgba(76,175,80,0.5)' : '0 2px 8px rgba(0,0,0,0.3)'};
     `;
     
     button.onmouseenter = () => {
-      button.style.borderColor = '#666';
-      button.style.transform = 'translateY(-2px)';
+      button.style.transform = 'translateY(-3px) scale(1.05)';
+      button.style.boxShadow = musicPlayer.isEnabled() ? '0 4px 16px rgba(76,175,80,0.6)' : '0 4px 12px rgba(0,0,0,0.4)';
     };
     
     button.onmouseleave = () => {
-      button.style.borderColor = musicPlayer.isEnabled() ? '#66BB6A' : '#555';
-      button.style.transform = 'translateY(0)';
+      button.style.transform = 'translateY(0) scale(1)';
+      button.style.boxShadow = musicPlayer.isEnabled() ? '0 2px 12px rgba(76,175,80,0.5)' : '0 2px 8px rgba(0,0,0,0.3)';
     };
     
     button.onmousedown = () => {
-      button.style.transform = 'translateY(1px)';
+      button.style.transform = 'translateY(0px) scale(0.95)';
     };
     
     button.onmouseup = () => {
-      button.style.transform = 'translateY(-2px)';
+      button.style.transform = 'translateY(-3px) scale(1.05)';
     };
     
     button.onclick = () => {
@@ -337,8 +345,9 @@ export class BottomBar {
       
       // Update button appearance
       button.textContent = isEnabled ? '🎵' : '🔇';
-      button.style.background = isEnabled ? '#4CAF50' : '#333';
-      button.style.borderColor = isEnabled ? '#66BB6A' : '#555';
+      button.style.background = isEnabled ? 'linear-gradient(180deg, #66BB6A 0%, #4CAF50 100%)' : 'linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 100%)';
+      button.style.borderColor = isEnabled ? '#81C784' : '#4a4a4a';
+      button.style.boxShadow = isEnabled ? '0 2px 12px rgba(76,175,80,0.5)' : '0 2px 8px rgba(0,0,0,0.3)';
       
       // Visual feedback
       button.style.animation = 'pulse-glow 0.3s ease';
@@ -415,40 +424,42 @@ export class BottomBar {
     
     const colors = {
       info: '#64B5F6',
-      warning: '#FF9800',
-      error: '#E57373',
-      success: '#4CAF50',
-      event: '#9C27B0',
+      warning: '#FFA726',
+      error: '#EF5350',
+      success: '#66BB6A',
+      event: '#AB47BC',
     };
     
     const bgColors = {
-      info: 'rgba(100, 181, 246, 0.1)',
-      warning: 'rgba(255, 152, 0, 0.1)',
-      error: 'rgba(229, 115, 115, 0.1)',
-      success: 'rgba(76, 175, 80, 0.1)',
-      event: 'rgba(156, 39, 176, 0.1)',
+      info: 'rgba(100, 181, 246, 0.15)',
+      warning: 'rgba(255, 167, 38, 0.15)',
+      error: 'rgba(239, 83, 80, 0.15)',
+      success: 'rgba(102, 187, 106, 0.15)',
+      event: 'rgba(171, 71, 188, 0.15)',
     };
     
     element.style.cssText = `
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
+      gap: 10px;
+      padding: 10px 14px;
       background: ${bgColors[notification.type]};
-      border-left: 3px solid ${colors[notification.type]};
-      border-radius: 3px;
+      border-left: 4px solid ${colors[notification.type]};
+      border-radius: 6px;
       color: ${colors[notification.type]};
-      font-size: 12px;
+      font-size: 13px;
       animation: slide-in-up 0.3s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      font-weight: 500;
     `;
     
     const icon = notification.icon || '';
     const time = new Date(notification.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     
     element.innerHTML = `
-      <span style="font-size: 14px;">${icon}</span>
-      <span style="color: white;">${notification.message}</span>
-      <span style="color: #666; font-size: 10px; margin-left: 5px;">${time}</span>
+      <span style="font-size: 18px;">${icon}</span>
+      <span style="color: white; flex-shrink: 0;">${notification.message}</span>
+      <span style="color: rgba(255,255,255,0.4); font-size: 10px; margin-left: 4px; font-family: 'Courier New', monospace;">${time}</span>
     `;
     
     return element;
@@ -463,13 +474,15 @@ export class BottomBar {
   private updateToolButtons(): void {
     this.toolButtons.forEach((button, tool) => {
       if (tool === this.currentTool) {
-        button.style.background = '#4CAF50';
-        button.style.borderColor = '#66BB6A';
+        button.style.background = 'linear-gradient(180deg, #66BB6A 0%, #4CAF50 100%)';
+        button.style.borderColor = '#81C784';
         button.style.transform = 'translateY(0)';
+        button.style.boxShadow = '0 2px 12px rgba(76,175,80,0.5)';
       } else {
-        button.style.background = '#333';
-        button.style.borderColor = '#555';
+        button.style.background = 'linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 100%)';
+        button.style.borderColor = '#4a4a4a';
         button.style.transform = 'translateY(0)';
+        button.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
       }
     });
   }
