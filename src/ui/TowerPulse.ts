@@ -18,6 +18,7 @@ export interface TowerPulseData {
   moodPercent: number; // 0-100, based on stress levels
   elevatorUtilization: number; // 0-100
   averageWaitTime: number; // In seconds
+  giveUpCount: number; // People who gave up waiting for elevators (NEW v0.9.1)
   cashFlowPerDay: number;
   dailyExpenses: number; // NEW
   evaluationCounts: { blue: number; yellow: number; red: number }; // NEW
@@ -144,6 +145,13 @@ export class TowerPulse {
       
       <div style="margin-bottom: 8px;">
         <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+          <span>😤 Gave Up</span>
+          <span style="color: ${this.getGiveUpColor(data.giveUpCount)}; font-weight: bold;">${data.giveUpCount} people</span>
+        </div>
+      </div>
+      
+      <div style="margin-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
           <span>💰 Net Flow</span>
           <span style="color: ${cashFlowColor}; font-weight: bold;">${cashFlowText}</span>
         </div>
@@ -236,6 +244,15 @@ export class TowerPulse {
     if (seconds < 30) return '#32cd32'; // Green - fast
     if (seconds < 60) return '#ffa500'; // Orange - moderate
     return '#ff6347'; // Red - slow
+  }
+  
+  /**
+   * Get give-up count color based on severity
+   */
+  private getGiveUpColor(count: number): string {
+    if (count === 0) return '#32cd32'; // Green - no issues
+    if (count < 5) return '#ffa500'; // Orange - minor problem
+    return '#ff6347'; // Red - major problem
   }
   
   /**

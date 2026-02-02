@@ -14,6 +14,7 @@ import { Person } from '@/entities/Person';
 import type { Tower, Building, GameClock } from '@/interfaces';
 import type { ElevatorSystem } from './ElevatorSystem';
 import { getEventBus } from '@core/EventBus';
+import { getSoundManager } from '@/audio/SoundManager';
 
 export interface RushHourConfig {
   morningStart: { hour: number; minute: number };
@@ -227,6 +228,9 @@ export class RushHourSystem {
       title: '☀️ Weekend Shift',
       message: `${newWorkers.length} workers (reduced staff) arriving`,
     });
+
+    // BUG-026 FIX: Play weekend shift sound (relaxed chime, different from weekday rush)
+    getSoundManager().playWeekendShift();
 
     console.log(`☀️ WEEKEND SHIFT: ${newWorkers.length} workers spawned (${staffedOfficeCount}/${offices.length} offices staffed)`);
     return newWorkers;

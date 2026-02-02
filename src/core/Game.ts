@@ -491,7 +491,18 @@ export class Game {
     // Update HUD
     if (this.gameHUD) {
       const clock = this.timeSystem.getClock();
-      const dateStr = `Day ${clock.gameDay}, ${clock.gameHour}:${clock.gameMinute.toString().padStart(2, '0')}`;
+      
+      // Calculate day of week (same logic as RushHourSystem)
+      const dayOfWeek = clock.gameDay % 7;
+      const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      const dayName = dayNames[dayOfWeek];
+      const isWeekend = dayOfWeek >= 5;
+      
+      // Format time with day name and weekend indicator
+      const timeStr = `${clock.gameHour}:${clock.gameMinute.toString().padStart(2, '0')}`;
+      const dateStr = isWeekend 
+        ? `${dayName} ${timeStr} 🌴 WEEKEND`
+        : `${dayName} ${timeStr}`;
       
       // Calculate next star requirement
       const nextStarReq = this.getNextStarRequirement(tower.starRating, tower.population);

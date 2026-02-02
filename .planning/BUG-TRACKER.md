@@ -54,27 +54,33 @@
 - **Files Changed:** `RushHourSystem.ts`
 - **Testing:** Needs manual verification (new game → wait for 7:30 AM → check workers spawn)
 
-### BUG-022: TypeScript Compilation Errors Ignored
+### BUG-022: TypeScript Compilation Errors Ignored ✅ FIXED
 - **Severity:** Medium (technical debt)
 - **Found:** 2026-02-02, Playtest Cron (Build Analysis)
-- **Status:** Open
-- **Description:** Progress log mentions "23 minor pre-existing errors" that were ignored. Vite dev works but type safety compromised.
-- **Impact:** 
-  - Could miss real bugs at compile time
-  - Harder for contributors to understand correct API usage
-  - CI/CD might fail on stricter TS configs
-- **Root Cause:** Interface definitions don't match implementation in several systems
-- **Fix Needed:** Systematic cleanup of type mismatches (see v0.7.2 for examples)
+- **Status:** **FIXED** in v0.10.0 (2026-02-02, 2:45 PM MST)
+- **Description:** Progress log mentioned "23 minor pre-existing errors" that were ignored. Type safety was compromised.
+- **Fix Verification:**
+  - Ran `npx tsc --noEmit` - **0 errors**
+  - Build succeeds cleanly
+  - All type definitions now match implementations
+- **Root Cause:** Interface definitions didn't match implementation (fixed incrementally over v0.7-0.9)
+- **Fixed By:** Incremental type fixes during bug fix sessions (v0.7.2 through v0.9.2)
 
-### BUG-023: No Elevator Height Limit Validation
+### BUG-023: No Elevator Height Limit Validation ✅ VERIFIED + IMPROVED
 - **Severity:** Medium
 - **Found:** 2026-02-02, Playtest Cron (Code Review)
-- **Status:** Open (BUG-009 from Jan 31 never verified fixed)
-- **Description:** SimTower limited elevators to 30 floors max. Current BuildingPlacer might allow unlimited height.
-- **Repro:** Place elevator from floor 1 to floor 50 (needs runtime testing)
-- **Expected:** Should reject placement with error "Elevators limited to 30 floors"
-- **Root Cause:** No validation in `BuildingPlacer.isValidElevatorPlacement()` or `ElevatorShaft` constructor
-- **Fix Needed:** Add check: `if (maxFloor - minFloor > 30) return { valid: false, reason: "Max 30 floors" }`
+- **Status:** **VERIFIED + IMPROVED** in v0.8.9 (2026-02-02, 12:07 PM MST)
+- **Description:** SimTower limited elevators to 30 floors max. BuildingPlacer had validation but no user feedback.
+- **Discovery:** Validation logic already existed at `BuildingPlacer.ts:596-599` checking `maxFloor - minFloor > 29`
+- **Issue:** No error message explained WHY placement failed
+- **Fix Applied:**
+  - Added error message: `⚠️ Elevators limited to 30 floors (tried XX)` - shows exact count
+  - Added `getErrorMessage()` API for UI integration
+  - Added auto-clear timeout (3 seconds)
+  - Console warning logs exact floor count
+- **Files Changed:** `BuildingPlacer.ts`
+- **Testing:** Needs manual verification (drag elevator 1-35 → check error appears)
+- **Fixed By:** v0.8.9, 2026-02-02 12:07 PM MST (Cron Job)
 
 ### BUG-024: Population Cap Not Centralized ✅ FIXED
 - **Severity:** Medium
@@ -123,29 +129,51 @@
 - **Testing:** See `TESTING-v0.8.8.md` for comprehensive test guide
 - **Fixed By:** v0.8.8, 2026-02-02 11:06 AM MST (Cron Job)
 
-### BUG-026: No Sound for Weekend Shift
+### BUG-026: No Sound for Weekend Shift ✅ FIXED
 - **Severity:** Low (polish)
 - **Found:** 2026-02-02, Playtest Cron (Code Review)
-- **Status:** Open
+- **Status:** **FIXED** in v0.9.2 (2026-02-02, 1:25 PM MST)
 - **Description:** Weekend shift triggers with notification but no unique sound effect (uses same sound as weekday rush)
 - **Impact:** Less audio juice on weekends
-- **Fix Needed:** Add subtle "lazy morning" sound effect or different notification tone for `triggerWeekendShift()`
+- **Fix Applied:**
+  - Added `playWeekendShift()` method to SoundManager.ts
+  - Gentle descending chime (F5-D5-A4) - relaxed weekend vibe
+  - Softer volume (20% vs 30% for weekday rush)
+  - Hooked up in RushHourSystem.triggerWeekendShift()
+  - Console logging: "BUG-026 FIX" comment in code
+- **Files Changed:** `SoundManager.ts`, `RushHourSystem.ts`
+- **Testing:** Needs manual verification (fast-forward to Day 5-6, wait for 10 AM)
+- **Fixed By:** v0.9.2, 2026-02-02 1:25 PM MST (Cron Job)
 
-### BUG-027: Elevator Give-Up Count Not Visible
+### BUG-027: Elevator Give-Up Count Not Visible ✅ FIXED
 - **Severity:** Low (UX)
 - **Found:** 2026-02-02, Playtest Cron (Code Review)
-- **Status:** Open
+- **Status:** **FIXED** in v0.9.1 (2026-02-02, 12:25 PM MST)
 - **Description:** v0.8.2 added elevator give-up logic with thought bubbles, but no UI counter shows how many people gave up.
-- **Impact:** Players can't quantify elevator capacity problems
-- **Fix Needed:** Add stat to elevator info panel or HUD: "X people gave up waiting today"
+- **Impact:** Players couldn't quantify elevator capacity problems
+- **Fix Applied:**
+  - Added `giveUpCount` field to TowerPulseData
+  - Display row in Tower Pulse: "😤 Gave Up: X people"
+  - Color-coded: Green (0), Orange (1-4), Red (5+)
+  - Alert when count >= 10: "X PEOPLE GAVE UP WAITING!"
+  - Wired up `elevatorSystem.getStats().stressedPassengers` to UI
+- **Files Changed:** `TowerPulse.ts`, `index.ts`
+- **Testing:** Needs manual verification (insufficient elevators → verify counter increases)
+- **Fixed By:** v0.9.1, 2026-02-02 12:25 PM MST (Cron Job)
 
-### BUG-028: No Visual Indicator for Weekend
+### BUG-028: No Visual Indicator for Weekend ✅ FIXED
 - **Severity:** Low (UX)
 - **Found:** 2026-02-02, Playtest Cron (Code Review)
-- **Status:** Open
-- **Description:** Weekend schedules work (reduced staff) but HUD doesn't show "WEEKEND" label. Players might not notice.
-- **Impact:** Reduced weekend staff might feel like a bug instead of a feature
-- **Fix Needed:** Add day-of-week to time display - "Monday 8:32 AM" vs "Saturday 10:15 AM - WEEKEND"
+- **Status:** **FIXED** in v0.9.0 (2026-02-02, 12:15 PM MST)
+- **Description:** Weekend schedules worked but HUD didn't show weekend indicator. Players couldn't tell what day it was.
+- **Fix Applied:**
+  - Added day-of-week calculation in Game.ts render loop (`gameDay % 7`)
+  - Weekdays show: "Monday 8:32 AM"
+  - Weekends show: "Saturday 10:15 AM 🌴 WEEKEND"
+  - Palm tree emoji provides clear visual distinction
+- **Files Changed:** `Game.ts`
+- **Testing:** Needs manual verification (fast-forward to Day 5 → verify "Saturday 🌴 WEEKEND" appears)
+- **Fixed By:** v0.9.0, 2026-02-02 12:15 PM MST (Cron Job)
 
 ### BUG-019: Elevators Can Overlap ✅ FIXED
 - **Severity:** Medium (exploit + visual bug)

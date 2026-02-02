@@ -1,207 +1,267 @@
-# Current Task: Rush Hour Visibility Fix
+# Current Task: Sprite Asset Generation & Integration
 
-**Status:** 🔴 CRITICAL - #1 Immersion Killer  
-**Priority:** IMMEDIATE  
-**ETA:** 2 hours  
-**Blocking:** Week 3 Population AI work
-
----
-
-## 🎯 The Problem
-
-**Workers spawn INSIDE offices** instead of at the lobby, making rush hours invisible.
-
-### What's Broken:
-```typescript
-// RushHourSystem.spawnWorkersForOffices()
-const worker = {
-  currentFloor: office.position.floor,  // ❌ Already at office!
-  currentTile: office.position.startTile,
-  destinationBuildingId: office.id,
-};
-```
-
-### Expected (SimTower):
-1. 8-9 AM: Workers spawn at LOBBY (floor 0)
-2. Workers walk to elevators
-3. Queues form (visible congestion)
-4. Elevators fill up
-5. Workers ride UP to offices
-6. **Rush hour is VISIBLE and creates PRESSURE**
-
-### Current Reality:
-1. 8 AM: Workers teleport into offices
-2. No lobby crowds
-3. No elevator usage during rush
-4. Game feels empty even with 50+ workers
-5. **Core mechanic (elevators) feels dead**
+**Status:** 🟢 Infrastructure Ready - Assets Needed  
+**Priority:** HIGH (5% → 50% visual upgrade)  
+**ETA:** 4-6 hours (with asset generation)  
+**Phase:** Week 10 - Visual Polish
 
 ---
 
-## 🔧 The Fix
+## 🎯 The Goal
 
-### File: `src/simulation/RushHourSystem.ts`
+Transform OpenTower from colored rectangles to pixel art sprites showing actual building interiors and animated people.
 
-**Change spawn location from office to lobby:**
+### What's Done ✅
+- Complete sprite management system (`BuildingSprites.ts`, `PeopleSprites.ts`)
+- Comprehensive documentation and integration guide
+- TypeScript types for all building and character states
+- Texture caching and preloading systems
+- Fallback rendering for missing assets
+- Asset specifications and prompt templates
 
-```typescript
-// BEFORE (broken)
-const worker = this.populationSystem.spawnWorker({
-  currentFloor: office.position.floor,    // ❌ At destination
-  currentTile: office.position.startTile,
-  destinationBuildingId: office.id,
-  state: 'idle',  // ❌ No reason to move
-});
-
-// AFTER (fixed)
-const worker = this.populationSystem.spawnWorker({
-  currentFloor: 0,                        // ✅ Spawn at lobby
-  currentTile: 5,                         // ✅ Center of lobby
-  destinationBuildingId: office.id,
-  state: 'walking',                       // ✅ Start pathfinding
-});
-// PathfindingSystem will create route: lobby → elevator → office
-```
-
-### Why It Works:
-1. Worker spawns at floor 0 (lobby)
-2. PathfindingSystem detects: `currentFloor ≠ destinationFloor`
-3. Creates multi-segment path: walk to elevator, ride up, walk to office
-4. PopulationSystem executes path step-by-step
-5. **Result:** Visible elevator usage, queues form, rush hour is real
+### What's Needed ⏳
+1. **Generate sprite assets** using ImageFX/DALL-E
+2. **Integrate sprites** into BuildingRenderer and PeopleRenderer
+3. **Test visual transitions** (empty → half → full states)
+4. **Polish animations** (walking cycles, smooth transitions)
 
 ---
 
-## ✅ Test Checklist
+## 📋 Immediate Next Steps
 
-After implementing:
+### Step 1: Generate First Batch of Sprites (2 hours)
+**Priority buildings for MVP visual upgrade:**
 
-1. **Morning Rush (8-9 AM):**
-   - [ ] Workers appear at lobby (floor 0)
-   - [ ] Workers walk toward elevators
-   - [ ] Elevator queues form (3-5 people waiting)
-   - [ ] Elevators fill up and go UP
-   - [ ] Workers arrive at office floors
-   - [ ] Console shows: "🌅 MORNING RUSH: X workers arriving"
+1. **Office (highest priority - most visible)**
+   - office-empty.png (144×36px)
+   - office-half.png (3 workers at desks)
+   - office-full.png (6 workers at desks)
+   
+2. **Lobby**
+   - lobby-1star.png (64×48px)
+   
+3. **FastFood**
+   - fastfood-empty.png (256×36px)
+   - fastfood-busy.png (customers at counter)
 
-2. **Evening Rush (5-6 PM):**
-   - [ ] Workers leave offices
-   - [ ] Workers walk to elevators on their floor
-   - [ ] Elevators pick up workers going DOWN
-   - [ ] Workers arrive at lobby
-   - [ ] Workers exit/despawn
-   - [ ] Console shows: "🌆 EVENING RUSH: X workers leaving"
-
-3. **Lunch Rush (12-1 PM):**
-   - [ ] Workers seek food buildings
-   - [ ] Elevators used to reach restaurants
-   - [ ] Food buildings show customer visits
-   - [ ] Workers return to offices after eating
-
----
-
-## 🎮 Expected Impact
-
-### Before:
-- Tower feels empty
-- Elevators rarely used
-- No visible congestion
-- Rush hours invisible
-- "Where is everyone?"
-
-### After:
-- Lobby bustling at 8 AM
-- Elevator queues visible
-- Congestion creates pressure
-- Rush hours feel REAL
-- "This is SimTower!"
-
-### Gameplay Loop Emerges:
-1. Morning rush → Elevator queues grow
-2. Player sees stress indicators (😰)
-3. Player adds more elevator cars
-4. Queues shrink, stress reduces
-5. **Core mechanic is working!**
-
----
-
-## 📊 Related Systems
-
-This fix enables:
-- **Elevator optimization** - Players can see wait times
-- **Stress feedback** - Visible when elevators overwhelm
-- **Rush hour mechanics** - Morning/evening/lunch patterns
-- **Population AI** - Pathfinding actually used
-- **Economic pressure** - Bad elevators = visible consequences
-
----
-
-## 🚀 Implementation Steps
-
-### 1. Update RushHourSystem.spawnWorkersForOffices()
-```typescript
-// Line ~125 in RushHourSystem.ts
-currentFloor: 0,           // Lobby spawn
-currentTile: 5,            // Center tile
-state: 'walking',          // Start moving
-```
-
-### 2. Update RushHourSystem.sendWorkersHome()
-```typescript
-// Workers already at office floor
-// Just set state to 'leaving' and destinationBuildingId = null
-// PathfindingSystem will route them to lobby
-```
-
-### 3. Verify PathfindingSystem Integration
-- Check that PathfindingSystem detects floor difference
-- Verify elevator route creation
-- Test multi-segment path execution
-
-### 4. Test in Browser
+**Generation workflow:**
 ```bash
-npm run dev
-# Visit http://100.85.24.1:5173/
-# Build offices on floors 2-5
-# Wait for 8:00 AM (or fast-forward)
-# Watch lobby for worker spawns
+# 1. Open ImageFX: https://labs.google/fx/tools/image-fx
+# 2. Use prompt from sprites/README.md (Building Interior section)
+# 3. Generate at 2K resolution
+# 4. Download and scale in Aseprite to exact dimensions
+# 5. Save to: public/assets/buildings/
 ```
+
+**Example Prompt (Office Empty):**
+```
+Pixel art cross-section view of office interior, SimTower style,
+144×36px, side view cutaway, empty desks with computers, 
+filing cabinets, fluorescent lighting, corporate blue color scheme,
+retro 1990s aesthetic, clean lines, isometric-ish perspective showing depth,
+256 color palette
+```
+
+### Step 2: Generate People Sprites (1 hour)
+**Priority: Walking animation basics**
+
+1. **Black (normal stress) - Right-facing**
+   - person-black-right-idle.png (8×16px)
+   - person-black-right-walk-1.png (left leg forward)
+   - person-black-right-walk-2.png (right leg forward)
+   
+2. **Black (normal stress) - Left-facing**
+   - person-black-left-idle.png
+   - person-black-left-walk-1.png
+   - person-black-left-walk-2.png
+
+**Generation workflow:**
+```bash
+# 1. Open DALL-E 3 (better for human figures)
+# 2. Use prompt from sprites/README.md (Person Sprite section)
+# 3. Generate at highest quality
+# 4. Scale and clean in Aseprite to 8×16px
+# 5. Save to: public/assets/people/
+```
+
+**Example Prompt (Person Idle):**
+```
+Single pixel art sprite, 8×16 pixels, person in business casual,
+side view profile, simple clean design, 1990s SimTower aesthetic,
+black body silhouette, standing pose, white background,
+retro game sprite style, high contrast
+```
+
+### Step 3: Integrate Sprites into Renderer (1 hour)
+
+**Modify BuildingRenderer.ts:**
+```typescript
+import {
+  createBuildingSprite,
+  getBuildingState,
+} from '@/rendering/sprites/BuildingSprites';
+
+// In renderBuilding():
+const state = getBuildingState(
+  building.type,
+  building.occupantIds.length,
+  building.capacity,
+  this.getCurrentTime()
+);
+
+const sprite = await createBuildingSprite(building.type, state);
+if (sprite) {
+  sprite.x = building.position.startTile * 16;
+  sprite.y = building.position.floor * 48;
+  this.container.addChild(sprite);
+  this.spriteCache.set(building.id, sprite);
+} else {
+  // Fallback to colored rectangle
+  this.renderColoredRectangle(building);
+}
+```
+
+**Modify PeopleRenderer.ts:**
+```typescript
+import {
+  createPersonSprite,
+  getPersonDirection,
+} from '@/rendering/sprites/PeopleSprites';
+
+// In renderPerson():
+const direction = getPersonDirection(person, previousTile);
+const sprite = await createPersonSprite(person, direction);
+
+if (sprite) {
+  sprite.x = person.currentTile * 16;
+  sprite.y = person.currentFloor * 48 + 48;
+  this.container.addChild(sprite);
+} else {
+  // Fallback to circle
+  this.renderCircle(person);
+}
+```
+
+### Step 4: Test in Browser (30 minutes)
+
+1. Build and run: `npm run dev`
+2. Place office building
+3. Verify sprite appears (not rectangle)
+4. Spawn workers
+5. Watch office transition: empty → half → full
+6. Verify people sprites appear (not circles)
+7. Verify walking animation plays
+8. Check console for sprite loading errors
 
 ---
 
-## 🎯 Success Criteria
+## 🔧 Implementation Details
 
-- [ ] Build compiles without errors
-- [ ] Morning rush: Workers spawn at lobby
-- [ ] Morning rush: Elevators fill up and go UP
-- [ ] Lunch rush: Workers use elevators to reach food
-- [ ] Evening rush: Workers descend to lobby
-- [ ] Console logs show: "🌅 MORNING RUSH: X workers"
-- [ ] Visual: Queues form at elevators (3-5+ people)
-- [ ] Stress: Workers show stress if wait > 2 minutes
-- [ ] Game feel: "This is SimTower!"
+### Asset Directory Structure
+```
+public/
+  assets/
+    buildings/
+      office-empty.png
+      office-half.png
+      office-full.png
+      fastfood-empty.png
+      fastfood-busy.png
+      lobby-1star.png
+    people/
+      person-black-left-idle.png
+      person-black-left-walk-1.png
+      person-black-left-walk-2.png
+      person-black-right-idle.png
+      person-black-right-walk-1.png
+      person-black-right-walk-2.png
+```
+
+### Critical Files to Modify
+1. `src/rendering/BuildingRenderer.ts` - Replace rectangles with sprites
+2. `src/rendering/PeopleRenderer.ts` - Replace circles with animated sprites
+3. `src/index.ts` - Add sprite preloading at game start
+
+### Testing Checklist
+- [ ] Sprites load without console errors
+- [ ] Buildings show correct state (empty/half/full)
+- [ ] State transitions work (occupancy changes)
+- [ ] People sprites animate when walking
+- [ ] People sprites face correct direction
+- [ ] Stress colors update correctly (future: add other colors)
+- [ ] Fallback rendering works (if sprite missing)
+- [ ] Performance is 60 FPS with 50+ people
+
+---
+
+## 📊 Expected Impact
+
+### Before (Current State):
+- Buildings: Colored rectangles (red, blue, green)
+- People: 4px colored circles
+- Stress: Only visible in thought bubbles
+- State: No visual indication of occupancy
+- **Visual Quality:** 2/10
+
+### After (First Sprite Batch):
+- Buildings: Pixel art interiors showing desks, workers
+- People: 8×16px animated characters walking
+- Stress: Color-coded character sprites
+- State: Visual difference between empty/half/full offices
+- **Visual Quality:** 6/10
+
+### Full Sprite System (Future):
+- All 21 building types with interiors
+- Day/night lighting variants
+- 5 stress colors for people
+- Full walking animations
+- Smooth state transitions
+- **Visual Quality:** 9/10 (SimTower-like)
 
 ---
 
 ## ⏱️ Time Estimate
 
-- Code changes: 15 minutes
-- Testing: 30 minutes
-- Debugging pathfinding: 30 minutes
-- Polish/logging: 15 minutes
-- **Total: 1.5 hours**
+- Asset generation (6 building sprites): 1 hour
+- Asset generation (6 people sprites): 1 hour
+- Post-processing in Aseprite: 1 hour
+- Code integration: 1 hour
+- Testing and debugging: 30 minutes
+- **Total: 4-5 hours**
 
 ---
 
-## 🔗 Follow-Up Tasks
+## 🎯 Success Criteria
 
-After rush hours work:
-
-1. **Cash Flow UI** (Week 1 completion)
-2. **Evaluation Overlay** (Week 2 start)
-3. **Population Needs** (Week 3)
+- [ ] Office building shows interior with desks
+- [ ] Office changes state when workers arrive
+- [ ] People appear as tiny humans (not circles)
+- [ ] Walking animation plays smoothly
+- [ ] Build succeeds with 0 TypeScript errors
+- [ ] Game runs at 60 FPS
+- [ ] Fallback rendering works for missing sprites
 
 ---
 
-*Last Updated: 2026-02-02, 2:00 AM MST*  
-*Status: Ready to implement*
+## 🔗 Resources
+
+- **Sprite System Docs:** `src/rendering/sprites/README.md`
+- **ImageFX:** https://labs.google/fx/tools/image-fx
+- **Aseprite:** (if installed) or manual pixel editing
+- **SimTower Reference:** OpenSkyscraper asset dumps for style
+
+---
+
+## 📝 Notes
+
+- Start with **offices and people** - highest visual impact
+- Don't worry about perfection - iterate on quality later
+- Fallback rendering ensures game always works
+- Sprite generation can happen in parallel (Davey uses AI tools)
+- Integration is straightforward once assets exist
+
+---
+
+*Last Updated: 2026-02-02, 2:45 PM MST - v0.10.0*  
+*Previous Task: Rush Hour Visibility (✅ Already Fixed)*  
+*Status: Infrastructure ready, waiting on assets*

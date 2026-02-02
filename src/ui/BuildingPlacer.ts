@@ -590,11 +590,16 @@ export class BuildingPlacer {
 
     // Check minimum shaft height (at least 2 floors)
     if (maxFloor - minFloor < 1) {
+      this.errorMessage = '⚠️ Elevator needs at least 2 floors';
+      setTimeout(() => { this.errorMessage = null; }, 3000);
       return false;
     }
 
     // Check maximum shaft height (30 floors for standard)
     if (maxFloor - minFloor > 29) {
+      this.errorMessage = `⚠️ Elevators limited to 30 floors (tried ${maxFloor - minFloor + 1})`;
+      setTimeout(() => { this.errorMessage = null; }, 3000);
+      console.warn(`⚠️ Elevator too tall: ${maxFloor - minFloor + 1} floors (max 30)`);
       return false;
     }
 
@@ -609,6 +614,7 @@ export class BuildingPlacer {
       const hasOverlap = this.onCheckElevatorOverlap(tile, minFloor, maxFloor);
       if (hasOverlap) {
         this.errorMessage = '⚠️ Elevator overlaps with existing shaft';
+        setTimeout(() => { this.errorMessage = null; }, 3000);
         console.warn(`⚠️ Elevator overlaps at tile ${tile}, floors ${minFloor}-${maxFloor}`);
         return false;
       }
@@ -749,6 +755,16 @@ export class BuildingPlacer {
   /** Check if ghost preview is currently active */
   hasGhost(): boolean {
     return this.ghostContainer.visible && !this.demolishMode;
+  }
+
+  /** Get current error message (for display in UI) */
+  getErrorMessage(): string | null {
+    return this.errorMessage;
+  }
+
+  /** Clear error message */
+  clearErrorMessage(): void {
+    this.errorMessage = null;
   }
 }
 

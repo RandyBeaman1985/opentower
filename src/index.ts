@@ -874,6 +874,10 @@ function updateTowerPulse(game: Game, towerPulse: TowerPulse) {
     // Get average wait time
     const averageWaitTime = popSystem.getAverageWaitTime();
     
+    // Get elevator stats (give-up count)
+    const elevatorStats = elevatorSystem.getStats();
+    const giveUpCount = elevatorStats.stressedPassengers;
+    
     // Add alerts (rush hour, wait times, etc.)
     const alerts: string[] = [];
     if (moodPercent < 50) {
@@ -884,6 +888,9 @@ function updateTowerPulse(game: Game, towerPulse: TowerPulse) {
     }
     if (averageWaitTime > 60) {
       alerts.push('LONG WAIT TIMES - Add more elevators!');
+    }
+    if (giveUpCount >= 10) {
+      alerts.push(`${giveUpCount} PEOPLE GAVE UP WAITING!`);
     }
     if (evaluationCounts.red > 3) {
       alerts.push(`${evaluationCounts.red} BUILDINGS FAILING`);
@@ -898,6 +905,7 @@ function updateTowerPulse(game: Game, towerPulse: TowerPulse) {
       moodPercent,
       elevatorUtilization,
       averageWaitTime,
+      giveUpCount,
       cashFlowPerDay: cashFlow.incomePerDay,
       dailyExpenses,
       evaluationCounts,

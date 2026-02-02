@@ -397,6 +397,46 @@ export class SoundManager {
   }
   
   /**
+   * Play weekend shift sound
+   * Soft, relaxed chime - less urgent than weekday rush
+   * BUG-026 FIX: Unique audio feedback for weekend arrivals
+   */
+  playWeekendShift(): void {
+    if (!this.enabled) return;
+
+    try {
+      const ctx = this.ensureContext();
+      const now = ctx.currentTime;
+      const vol = this.getVolume('sfx');
+
+      // Gentle descending chime (F5-D5-A4) - relaxed weekend vibe
+      const notes = [698, 587, 440]; // F5, D5, A4
+      
+      notes.forEach((freq, i) => {
+        const startTime = now + i * 0.15;
+        
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        
+        // Soft, gentle envelope
+        gain.gain.setValueAtTime(vol * 0.2, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.4);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(startTime);
+        osc.stop(startTime + 0.4);
+      });
+    } catch (error) {
+      console.warn('Failed to play weekend shift sound:', error);
+    }
+  }
+  
+  /**
    * Play construction sound
    * Hammering/drilling noise
    */
