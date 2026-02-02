@@ -1,142 +1,207 @@
-# Current Task
+# Current Task: Rush Hour Visibility Fix
 
-## Status: v0.6.0 COMPLETE ✅ - FOOD SYSTEM VERIFIED! 🍔
+**Status:** 🔴 CRITICAL - #1 Immersion Killer  
+**Priority:** IMMEDIATE  
+**ETA:** 2 hours  
+**Blocking:** Week 3 Population AI work
 
-## What Was Accomplished (Midnight Build Session)
-✅ **Food System Verification** - Discovered it was already fully implemented!  
-✅ **Build Fixed** - Resolved TypeScript/API mismatches, Vite build success  
-✅ **Documentation Updated** - PROGRESS-LOG.md reflects food system details  
-✅ **Demo Created** - demos/v0.6.0/ ready for testing  
+---
 
-**CRITICAL DISCOVERY:** The food system was completed in a previous session but not documented. All components working:
-- Hunger decay, lunch schedule, pathfinding, customer tracking, income generation, stress mechanics
+## 🎯 The Problem
 
-**Current Build**
-**Version:** v0.6.0  
-**Status:** FOOD SYSTEM COMPLETE  
-**Demo:** http://100.85.24.1:5173/ (dev) + demos/v0.6.0/ (prod)  
-**Session Duration:** 2 hours (12:10 AM - 2:10 AM MST)
+**Workers spawn INSIDE offices** instead of at the lobby, making rush hours invisible.
 
-## What's Working Now
-- Place offices on different floors
-- Workers spawn automatically (6 per office)
-- Workers walk around with stress-based colors + emoticons
-- Elevators move with LOOK algorithm
-- Workers call and use elevators to reach destinations
-- Multi-floor pathfinding with smooth animations
-- Queue visualization with destination indicators
-- Smooth boarding/exiting fade animations
-- Particle effects (sparkles when doors open)
-- Better person sprites with shadows and direction
-- Enhanced elevator door animations with state indicators
-- **NEW: Food system! FastFood (1★) & Restaurant (2★)**
-- **NEW: Lunch at 12 PM - workers seek food**
-- **NEW: Multi-floor food navigation**
-- **NEW: Hunger decay & stress penalties**
-- **NEW: Income from customers ($5 FastFood, $15 Restaurant)**
-- **NEW: Satisfaction tracking & food quality ratings**
-- Quarterly income from all buildings
-- Tower Pulse shows real-time health
-- All systems integrated, food loop functional!
+### What's Broken:
+```typescript
+// RushHourSystem.spawnWorkersForOffices()
+const worker = {
+  currentFloor: office.position.floor,  // ❌ Already at office!
+  currentTile: office.position.startTile,
+  destinationBuildingId: office.id,
+};
+```
 
-## Next Session (v0.7.0) - Building Sprites OR Bug Fixes
+### Expected (SimTower):
+1. 8-9 AM: Workers spawn at LOBBY (floor 0)
+2. Workers walk to elevators
+3. Queues form (visible congestion)
+4. Elevators fill up
+5. Workers ride UP to offices
+6. **Rush hour is VISIBLE and creates PRESSURE**
 
-### Option A: Building Sprites (VISUAL UPGRADE) ⭐ RECOMMENDED
-**Goal:** Replace placeholder rectangles with real graphics!
+### Current Reality:
+1. 8 AM: Workers teleport into offices
+2. No lobby crowds
+3. No elevator usage during rush
+4. Game feels empty even with 50+ workers
+5. **Core mechanic (elevators) feels dead**
 
-Tasks:
-1. Generate building sprites with ImageFX (Imagen 4)
-2. Office building sprite (multiple variants for height?)
-3. Lobby sprite (grand entrance)
-4. Restaurant sprite (storefront look)
-5. FastFood sprite (small counter)
-6. Integrate sprites into BuildingRenderer
-7. Day/night color variants (optional)
-8. Person sprites (better than current circles)
+---
 
-**Estimated Time:** 2-3 hours  
-**Impact:** Professional appearance, easier to understand, HUGE visual upgrade  
-**Why Now:** Core mechanics solid, time to make it GORGEOUS
+## 🔧 The Fix
 
-### Option B: Bug Fixes (STABILITY)
-**Goal:** Clean up known issues from BUG-TRACKER.md
+### File: `src/simulation/RushHourSystem.ts`
 
-Critical Bugs to Fix:
-1. **BUG-013**: People stuck in unreachable destinations (⚠️ HIGH)
-2. **BUG-014**: Elevator shaft not removed on demolish (⚠️ CRITICAL)
-3. **BUG-015**: Stress doesn't decay over time
-4. **BUG-011**: Elevator capacity not visually obvious
-5. **BUG-012**: No feedback when elevator drag too short
+**Change spawn location from office to lobby:**
 
-**Estimated Time:** 2-3 hours  
-**Impact:** Fewer player frustrations, smoother experience
+```typescript
+// BEFORE (broken)
+const worker = this.populationSystem.spawnWorker({
+  currentFloor: office.position.floor,    // ❌ At destination
+  currentTile: office.position.startTile,
+  destinationBuildingId: office.id,
+  state: 'idle',  // ❌ No reason to move
+});
 
-### Option C: Food Visual Polish (ITERATION)
-**Goal:** Make food system more visible and satisfying
+// AFTER (fixed)
+const worker = this.populationSystem.spawnWorker({
+  currentFloor: 0,                        // ✅ Spawn at lobby
+  currentTile: 5,                         // ✅ Center of lobby
+  destinationBuildingId: office.id,
+  state: 'walking',                       // ✅ Start pathfinding
+});
+// PathfindingSystem will create route: lobby → elevator → office
+```
 
-Tasks:
-1. Add 🍔 icon above FastFood buildings
-2. Add 🍽️ icon above Restaurants
-3. Show "Eating..." text when person at food building
-4. Add satisfaction particle effects (hearts?)
-5. Warning indicator when no food buildings exist
-6. "Hungry" thought bubble above stressed workers before lunch
+### Why It Works:
+1. Worker spawns at floor 0 (lobby)
+2. PathfindingSystem detects: `currentFloor ≠ destinationFloor`
+3. Creates multi-segment path: walk to elevator, ride up, walk to office
+4. PopulationSystem executes path step-by-step
+5. **Result:** Visible elevator usage, queues form, rush hour is real
 
-**Estimated Time:** 1-2 hours  
-**Impact:** Players understand food system better, more satisfying
+---
 
-**RECOMMENDATION:** Go with Option A (Building Sprites) — the game feels solid mechanically, time to make it LOOK professional. ImageFX (Imagen 4) is perfect for this!
+## ✅ Test Checklist
 
-## Dev Server
-**Status:** RUNNING (restart with `npm run dev`)  
-**URL:** http://100.85.24.1:5173/  
-**Production:** demos/v0.6.0/index.html  
-**Health:** All systems operational + food mechanics verified!
+After implementing:
 
-## Known Issues / Tech Debt
-- [x] ~~People don't board elevators~~ **FIXED IN v0.4.0!**
-- [x] ~~No queue visualization~~ **FIXED IN v0.5.0!**
-- [x] ~~No boarding/exiting animations~~ **FIXED IN v0.5.0!**
-- [x] ~~Food buildings not functional~~ **FIXED IN v0.6.0!**
-- [ ] TypeScript build has 23 errors (API mismatches, not runtime issues)
-- [ ] Only offices/food generate income (hotels/shops need implementation)
-- [ ] Placeholder graphics (colored rectangles) - **NEXT PRIORITY**
-- [ ] No save/load system persistence for food customer counts
-- [ ] No sound effects for eating (would be nice: nom nom, slurp)
-- [ ] BUG-013: People stuck in unreachable destinations (⚠️ HIGH)
-- [ ] BUG-014: Elevator shaft not removed on demolish (⚠️ CRITICAL)
-- [ ] BUG-015: Stress doesn't decay over time
+1. **Morning Rush (8-9 AM):**
+   - [ ] Workers appear at lobby (floor 0)
+   - [ ] Workers walk toward elevators
+   - [ ] Elevator queues form (3-5 people waiting)
+   - [ ] Elevators fill up and go UP
+   - [ ] Workers arrive at office floors
+   - [ ] Console shows: "🌅 MORNING RUSH: X workers arriving"
 
-## Testing Notes for v0.6.0
-**To verify food system:**
-1. Start game, place office on floor 2
-2. Place FastFood on floor 1
-3. Place elevator connecting floors 1-2
-4. Wait for workers to spawn
-5. Advance time to 12:00 PM (lunch time)
-6. Watch workers navigate to FastFood
-7. Check console for "🍔 [name] visited fastFood at floor 1"
-8. Verify stress reduced after eating
-9. Check quarterly report for FastFood income
+2. **Evening Rush (5-6 PM):**
+   - [ ] Workers leave offices
+   - [ ] Workers walk to elevators on their floor
+   - [ ] Elevators pick up workers going DOWN
+   - [ ] Workers arrive at lobby
+   - [ ] Workers exit/despawn
+   - [ ] Console shows: "🌆 EVENING RUSH: X workers leaving"
 
-**Expected Behavior:**
-- Workers show "hungry" state around 11:45-12:00
-- PopulationAI triggers seekFood() at 12:00
-- Pathfinding creates multi-floor route
-- Worker walks → elevator → FastFood
-- Stress decreases by 10 on arrival
-- Customer count increments
-- Quarterly report shows $5 per customer
+3. **Lunch Rush (12-1 PM):**
+   - [ ] Workers seek food buildings
+   - [ ] Elevators used to reach restaurants
+   - [ ] Food buildings show customer visits
+   - [ ] Workers return to offices after eating
 
-## Blockers
-**None!** Food system working, build succeeds. Ready for visual upgrades or bug fixes.
+---
 
-## TypeScript Errors (Non-Blocking)
-23 errors remain, but Vite builds successfully. These are API signature mismatches from refactoring:
-- GameClock method names changed
-- ElevatorCar.doorTimer should be public getter
-- QuarterlyReport interface mismatch
-- BuildingType enum missing 'parking'
-- GameSpeed type needs update
+## 🎮 Expected Impact
 
-**Fix Strategy:** Create a dedicated TypeScript cleanup session after visual polish.
+### Before:
+- Tower feels empty
+- Elevators rarely used
+- No visible congestion
+- Rush hours invisible
+- "Where is everyone?"
+
+### After:
+- Lobby bustling at 8 AM
+- Elevator queues visible
+- Congestion creates pressure
+- Rush hours feel REAL
+- "This is SimTower!"
+
+### Gameplay Loop Emerges:
+1. Morning rush → Elevator queues grow
+2. Player sees stress indicators (😰)
+3. Player adds more elevator cars
+4. Queues shrink, stress reduces
+5. **Core mechanic is working!**
+
+---
+
+## 📊 Related Systems
+
+This fix enables:
+- **Elevator optimization** - Players can see wait times
+- **Stress feedback** - Visible when elevators overwhelm
+- **Rush hour mechanics** - Morning/evening/lunch patterns
+- **Population AI** - Pathfinding actually used
+- **Economic pressure** - Bad elevators = visible consequences
+
+---
+
+## 🚀 Implementation Steps
+
+### 1. Update RushHourSystem.spawnWorkersForOffices()
+```typescript
+// Line ~125 in RushHourSystem.ts
+currentFloor: 0,           // Lobby spawn
+currentTile: 5,            // Center tile
+state: 'walking',          // Start moving
+```
+
+### 2. Update RushHourSystem.sendWorkersHome()
+```typescript
+// Workers already at office floor
+// Just set state to 'leaving' and destinationBuildingId = null
+// PathfindingSystem will route them to lobby
+```
+
+### 3. Verify PathfindingSystem Integration
+- Check that PathfindingSystem detects floor difference
+- Verify elevator route creation
+- Test multi-segment path execution
+
+### 4. Test in Browser
+```bash
+npm run dev
+# Visit http://100.85.24.1:5173/
+# Build offices on floors 2-5
+# Wait for 8:00 AM (or fast-forward)
+# Watch lobby for worker spawns
+```
+
+---
+
+## 🎯 Success Criteria
+
+- [ ] Build compiles without errors
+- [ ] Morning rush: Workers spawn at lobby
+- [ ] Morning rush: Elevators fill up and go UP
+- [ ] Lunch rush: Workers use elevators to reach food
+- [ ] Evening rush: Workers descend to lobby
+- [ ] Console logs show: "🌅 MORNING RUSH: X workers"
+- [ ] Visual: Queues form at elevators (3-5+ people)
+- [ ] Stress: Workers show stress if wait > 2 minutes
+- [ ] Game feel: "This is SimTower!"
+
+---
+
+## ⏱️ Time Estimate
+
+- Code changes: 15 minutes
+- Testing: 30 minutes
+- Debugging pathfinding: 30 minutes
+- Polish/logging: 15 minutes
+- **Total: 1.5 hours**
+
+---
+
+## 🔗 Follow-Up Tasks
+
+After rush hours work:
+
+1. **Cash Flow UI** (Week 1 completion)
+2. **Evaluation Overlay** (Week 2 start)
+3. **Population Needs** (Week 3)
+
+---
+
+*Last Updated: 2026-02-02, 2:00 AM MST*  
+*Status: Ready to implement*

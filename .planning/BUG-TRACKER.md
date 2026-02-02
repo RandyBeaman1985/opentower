@@ -15,47 +15,95 @@
 
 ## Open Bugs
 
-### BUG-011: Elevator Capacity Not Visually Obvious
+### BUG-015: Stress Doesn't Decay Over Time ✅ FIXED
+- **Severity:** Medium (gameplay balance)
+- **Found:** 2026-02-01, Playtest Session #2
+- **Status:** **FIXED** in v0.7.4
+- **Description:** Stress only increases, never decreases. People who wait for elevator stay stressed forever even after reaching destination
+- **Root Cause:** No decay logic in `Person.update()`
+- **Fix Implemented:**
+  - Stress decays slowly (-0.1/tick) when idle or at destination
+  - Faster decay (-0.2/tick) when riding elevator
+  - Existing eating bonus (-10 instant) preserved
+- **Fixed By:** v0.7.4 Polish Sprint, 2026-02-02
+
+### BUG-016: Multiple People Can Board Same Elevator Spot ✅ FIXED
+- **Severity:** Low (visual only)
+- **Found:** 2026-02-01, Playtest Session #2
+- **Status:** **FIXED** in v0.7.4
+- **Description:** Queue visualization shows spacing, but boarding animation doesn't prevent pixel overlap
+- **Root Cause:** All waiting people board same car in same tick
+- **Fix Implemented:** Only one person can board per car per tick, prevents visual overlaps
+- **Fixed By:** v0.7.4 Polish Sprint, 2026-02-02
+
+### BUG-017: No Maximum Population Limit ✅ FIXED
+- **Severity:** Medium (performance risk)
+- **Found:** 2026-02-01, Playtest Session #2
+- **Status:** **FIXED** in v0.7.4
+- **Description:** SimTower capped at ~15K population. This game has no cap. Auto-immigration could cause lag.
+- **Root Cause:** No check in `PopulationSystem.processImmigration()`
+- **Fix Implemented:** Added 10,000 population cap (prevents performance issues)
+- **Fixed By:** v0.7.4 Polish Sprint, 2026-02-02
+
+### BUG-018: Sound Plays When Muted ✅ VERIFIED FIXED
+- **Severity:** Low
+- **Found:** 2026-02-01, Playtest Session #2 (code review)
+- **Status:** **ALREADY FIXED** - All sound methods have early returns
+- **Description:** Concern that `SoundManager` might play sounds when muted
+- **Verification:** All 9 `play*()` methods correctly check `if (!this.enabled) return`
+- **Result:** NO BUG - code is correct
+
+### BUG-011: Elevator Capacity Not Visually Obvious ✅ FIXED
 - **Severity:** Low (UX)
 - **Found:** 2026-02-01, Playtest Session #2
-- **Status:** Open
-- **Description:** Elevators show passenger count (e.g. "3"), but players don't know max capacity is 15. No visual fullness indicator.
-- **Repro:** Spawn 20 people, watch elevator. Shows "15" but looks identical to "3"
-- **Fix Needed:** Add visual fill bar or show "3/15" format. Color-code when >80% full (yellow/red warning)
+- **Status:** **FIXED** in v0.7.4
+- **Description:** Elevators show passenger count (e.g. "3"), but players don't know max capacity is 15
+- **Fix Implemented:**
+  - Shows "X/15" format instead of just "X"
+  - Background color-codes for fullness: green (<50%), orange (50-80%), red (>80%)
+  - Larger background circle to fit longer text
+- **Fixed By:** v0.7.4 Polish Sprint, 2026-02-02
 
-### BUG-012: No Feedback When Elevator Drag Is Too Short
+### BUG-012: No Feedback When Elevator Drag Is Too Short ✅ FIXED
 - **Severity:** Medium
 - **Found:** 2026-02-01, Playtest Session #2
-- **Status:** Open
+- **Status:** **FIXED** in v0.7.4
 - **Description:** Code enforces 2-floor minimum for elevators, but if player drags just 1 floor, nothing happens with no error message
-- **Repro:** Select elevator, drag from floor 1 to floor 2 (1 floor gap), release. Nothing placed.
-- **Root Cause:** `BuildingPlacer.ts` validates but doesn't show tooltip
-- **Fix Needed:** Show error tooltip: "Elevators need at least 2 floors"
+- **Root Cause:** `BuildingPlacer.ts` validates but doesn't show feedback
+- **Fix Implemented:**
+  - Console warning: "⚠️ Elevator too short: needs at least 2 floors"
+  - Error message timeout (3 seconds)
+  - Also shows funding error when insufficient funds
+- **Fixed By:** v0.7.4 Polish Sprint, 2026-02-02
 
-### BUG-013: People Can Get Stuck in Unreachable Destinations ⚠️ CRITICAL
+### BUG-013: People Can Get Stuck in Unreachable Destinations ✅ FIXED
 - **Severity:** High (gameplay blocker)
 - **Found:** 2026-02-01, Playtest Session #2
-- **Status:** Open
+- **Status:** **FIXED** in v0.7.6
 - **Description:** Workers spawn on floors without elevators, get stuck in `waitingForElevator` state forever, stress goes critical
-- **Repro:**
-  1. Place office on floor 5
-  2. Don't build elevator
-  3. Worker spawns, tries to reach office, gets stuck
 - **Root Cause:** `PathfindingSystem.findPath()` returns null, but calling code just adds stress without despawning person
-- **Fix Needed:** Add retry counter (5 attempts), then despawn or force idle state after 30 seconds
+- **Fix Implemented:**
+  - Added retry tracking: `pathfindingFailures`, `lastPathfindingAttemptTick`, `stuckSince` fields
+  - After 5 failed pathfinding attempts OR 30 seconds stuck, person gives up
+  - Stuck people enter 'leaving' state and despawn gracefully
+  - Thought bubble shows "Can't get there!" for player feedback
+  - Problematic buildings marked in `badExperienceBuildings` memory
+  - Console warnings log which person got stuck and why
+- **Fixed By:** v0.7.6, 2026-02-02 3:20 AM MST
 
-### BUG-014: Elevator Shaft Not Removed on Demolish ⚠️ CRITICAL
+### BUG-014: Elevator Shaft Not Removed on Demolish ✅ FIXED
 - **Severity:** Critical (memory leak + visual bug)
 - **Found:** 2026-02-01, Playtest Session #2
-- **Status:** Open
+- **Status:** **FIXED** in v0.7.5
 - **Description:** Demolish mode works for buildings, but elevators aren't buildings. Clicking elevator does nothing.
-- **Repro:**
-  1. Place elevator
-  2. Enter demolish mode (D key)
-  3. Click on elevator shaft
-  4. Nothing happens (shaft persists)
 - **Root Cause:** `BuildingPlacer.ts` only checks `tower.buildingsById`, not `elevatorSystem.getShafts()`
-- **Fix Needed:** Add elevator detection in demolish mode, call `elevatorSystem.removeShaft(id)`, refund cost
+- **Fix Implemented:**
+  - BuildingPlacer now detects elevator clicks in demolish mode
+  - Added `findShaftAtPosition(tile, floor)` to ElevatorSystem
+  - Callback wiring in index.ts handles removal and 50% refund
+  - Visual feedback: red X appears on hovered elevator
+  - Works exactly like building demolish
+- **Fixed By:** v0.7.5, 2026-02-02 3:20 AM MST
 
 ### BUG-015: Stress Doesn't Decay Over Time
 - **Severity:** Medium (gameplay balance)

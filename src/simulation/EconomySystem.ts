@@ -638,6 +638,9 @@ export class EconomySystem {
       
       console.log(`⚠️  WARNING: Funds are negative! You have 3 game-days to recover.`);
       
+      // Play warning sound
+      getSoundManager().playWarning();
+      
       getEventBus().emitSync({
         type: 'BANKRUPTCY_WARNING',
         funds: tower.funds,
@@ -657,6 +660,10 @@ export class EconomySystem {
           this.bankruptcyState.warningsIssued = i + 1;
           
           console.log(`🚨 BANKRUPTCY WARNING ${i + 1}: Debt at $${Math.abs(tower.funds).toLocaleString()}`);
+          
+          // Play escalating warning sounds
+          if (i === 0) getSoundManager().playWarning();
+          if (i === 1) getSoundManager().playFireAlarm();
           
           getEventBus().emitSync({
             type: 'BANKRUPTCY_WARNING',

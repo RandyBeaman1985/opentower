@@ -96,6 +96,19 @@ export class ElevatorSystem {
   }
   
   /**
+   * Find a shaft at the given tile and floor position
+   * Returns undefined if no shaft exists at that location
+   */
+  findShaftAtPosition(tile: number, floor: number): ElevatorShaft | undefined {
+    for (const shaft of this.shafts.values()) {
+      if (shaft.tileX === tile && floor >= shaft.minFloor && floor <= shaft.maxFloor) {
+        return shaft;
+      }
+    }
+    return undefined;
+  }
+  
+  /**
    * Add an elevator shaft
    */
   addShaft(shaft: ElevatorShaft): void {
@@ -115,7 +128,7 @@ export class ElevatorSystem {
    * Update all elevators and passenger queues
    */
   update(tower: Tower, gameSpeed: number): void {
-    const currentTime = tower.clock.getCurrentTime();
+    const currentTime = tower.clock.currentTick;
     
     // Update all elevator shafts
     for (const shaft of this.shafts.values()) {

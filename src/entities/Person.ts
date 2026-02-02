@@ -133,6 +133,16 @@ export class Person implements IPerson {
         // Check schedule, decide next action
         break;
     }
+    
+    // 🆕 BUG-015 FIX: Stress decay over time
+    // Stress naturally decreases when not waiting/stressed
+    if (this.state === 'idle' || this.state === 'atDestination') {
+      // Slow decay when idle/at destination
+      this.stress = Math.max(0, this.stress - 0.1);
+    } else if (this.state === 'ridingElevator') {
+      // Slight relief when moving
+      this.stress = Math.max(0, this.stress - 0.2);
+    }
   }
   
   /**

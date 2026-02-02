@@ -10,6 +10,7 @@ import { TutorialOverlay } from '@/ui/TutorialOverlay';
 import { StarRatingNotification } from '@/ui/StarRatingNotification';
 import { BuildingTooltip } from '@/ui/BuildingTooltip';
 import { RandomEventNotification } from '@/ui/RandomEventNotification';
+import { GameOverModal } from '@/ui/GameOverModal';
 import { getEventBus } from '@core/EventBus';
 import { getSoundManager } from '@/audio/SoundManager';
 
@@ -190,11 +191,8 @@ async function main() {
           // Play placement sound
           getSoundManager().playBuildingPlaced();
           
-          // Auto-spawn workers for offices
-          if (building.type === 'office') {
-            const popSystem = game.getPopulationSystem();
-            popSystem.spawnWorkersForBuildings(tower);
-          }
+          // Workers will spawn naturally during morning rush (7:30-9:00 AM)
+          // No instant spawning - makes rush hours more visible!
         }
       }
     }
@@ -207,6 +205,30 @@ async function main() {
     const elevatorSystem = game.getElevatorSystem();
     elevatorSystem.createStandardShaft(tile, minFloor, maxFloor);
     console.log(`Created elevator shaft at tile ${tile}, floors ${minFloor}-${maxFloor}`);
+  });
+  
+  // Connect elevator demolish callback
+  placer.setElevatorDemolishedCallback((tile, floor) => {
+    const elevatorSystem = game.getElevatorSystem();
+    const shaft = elevatorSystem.findShaftAtPosition(tile, floor);
+    
+    if (!shaft) {
+      return { success: false, refund: 0 };
+    }
+    
+    // Calculate refund (50% of original cost)
+    const floorCount = shaft.maxFloor - shaft.minFloor + 1;
+    const originalCost = 200000 + (floorCount - 1) * 80000; // Base $200K + $80K per extra floor
+    const refund = Math.floor(originalCost * 0.5);
+    
+    // Remove the shaft
+    elevatorSystem.removeShaft(shaft.id);
+    console.log(`Demolished elevator shaft at tile ${tile} (${floorCount} floors) - Refunded $${refund.toLocaleString()}`);
+    
+    // Play demolish sound
+    getSoundManager().playDemolish();
+    
+    return { success: true, refund };
   });
 
   // Start the game
@@ -245,7 +267,7 @@ async function main() {
   console.log('========================================');
   
   // Add control buttons
-  addSpawnButton(game);
+  // addSpawnButton(game); // Removed - workers now spawn during morning rush (7:30 AM)
   addDemolishButton(placer, menu);
   addSaveLoadButtons(game, menu);
   // Elevator button removed - now available in building menu!
@@ -282,6 +304,75 @@ async function main() {
   // Listen for random events
   getEventBus().on('RANDOM_EVENT', (event: any) => {
     eventNotification.show(event.data.event);
+  });
+
+  // Add Game Over Modal
+  const gameOverModal = new GameOverModal();
+  
+  // Listen for game over (bankruptcy)
+  getEventBus().on('GAME_OVER', (event: any) => {
+    const tower = game.getTowerManager().getTower();
+    const economicSystem = game.getEconomicSystem();
+    const allReports = economicSystem.getAllReports();
+    
+    // Calculate totals
+    const totalIncome = allReports.reduce((sum, r) => sum + r.income, 0);
+    const totalExpenses = allReports.reduce((sum, r) => sum + r.maintenance, 0);
+    
+    // Play bankruptcy sound
+    getSoundManager().playWarning();
+    
+    gameOverModal.show({
+      reason: 'bankruptcy',
+      finalFunds: tower.funds,
+      finalPopulation: tower.population,
+      finalStarRating: tower.starRating,
+      daysPlayed: game.getOperatingCostSystem().serialize().dayNumber || 0,
+      buildingsBuilt: Object.keys(tower.buildingsById).length,
+      totalIncome,
+      totalExpenses,
+    });
+    
+    // Pause game
+    game.pause();
+  });
+
+  // Listen for TOWER status achievement (victory!)
+  getEventBus().on('TOWER_STATUS_ACHIEVED', (_event: any) => {
+    const tower = game.getTowerManager().getTower();
+    const economicSystem = game.getEconomicSystem();
+    const allReports = economicSystem.getAllReports();
+    
+    const totalIncome = allReports.reduce((sum, r) => sum + r.income, 0);
+    const totalExpenses = allReports.reduce((sum, r) => sum + r.maintenance, 0);
+    
+    // Play victory fanfare
+    getSoundManager().playStarRatingUp();
+    
+    gameOverModal.show({
+      reason: 'victory',
+      finalFunds: tower.funds,
+      finalPopulation: tower.population,
+      finalStarRating: tower.starRating,
+      daysPlayed: game.getOperatingCostSystem().serialize().dayNumber || 0,
+      buildingsBuilt: Object.keys(tower.buildingsById).length,
+      totalIncome,
+      totalExpenses,
+    });
+    
+    // Don't pause - let player continue
+  });
+
+  // Handle restart
+  gameOverModal.onRestart(() => {
+    // Reload page to start fresh
+    window.location.reload();
+  });
+
+  // Handle continue (victory only)
+  gameOverModal.onContinue(() => {
+    // Just close modal and continue playing
+    game.resume();
   });
 
   // Listen for building demolitions

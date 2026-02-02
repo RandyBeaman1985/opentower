@@ -25,6 +25,7 @@ import { ResidentSystem } from '@simulation/ResidentSystem';
 import { RandomEventSystem } from '@simulation/RandomEventSystem';
 import { EvaluationSystem } from '@simulation/EvaluationSystem';
 import { OperatingCostSystem } from '@simulation/OperatingCostSystem';
+import { RushHourSystem } from '@simulation/RushHourSystem';
 
 export interface GameConfig {
   /** Width of the game canvas */
@@ -70,6 +71,7 @@ export class Game {
   private randomEventSystem: RandomEventSystem;
   private evaluationSystem: EvaluationSystem;
   private operatingCostSystem: OperatingCostSystem;
+  private rushHourSystem: RushHourSystem;
   private saveLoadManager: SaveLoadManager | null = null;
   private towerRenderer: TowerRenderer | null = null;
   private state: GameState = GameState.INITIALIZING;
@@ -100,6 +102,7 @@ export class Game {
     this.randomEventSystem = new RandomEventSystem();
     this.evaluationSystem = new EvaluationSystem();
     this.operatingCostSystem = new OperatingCostSystem();
+    this.rushHourSystem = new RushHourSystem();
   }
 
   /**
@@ -266,6 +269,22 @@ export class Game {
     // Update elevators
     this.elevatorSystem.update(tower, gameSpeed);
 
+    // Update rush hour system (spawn workers at lobby during morning rush, send them home at evening)
+    const people = this.populationSystem.getPeople();
+    const peopleMap = new Map(people.map(p => [p.id, p]));
+    const newWorkers = this.rushHourSystem.update(tower, clock, peopleMap, this.elevatorSystem);
+    
+    // Add newly spawned workers to PopulationSystem
+    for (const worker of newWorkers) {
+      this.populationSystem.addPerson(worker);
+    }
+
+    // Check for workers exiting at lobby during evening rush
+    const exitingWorkerIds = this.rushHourSystem.checkForExitingWorkers(peopleMap);
+    for (const workerId of exitingWorkerIds) {
+      this.rushHourSystem.removeWorkerAtExit(workerId, peopleMap);
+    }
+
     // Update population (now with elevator integration and food building tracking)
     this.populationSystem.update(tower, clock, this.currentTick, this.elevatorSystem, this.economicSystem);
 
@@ -276,8 +295,6 @@ export class Game {
     this.hotelSystem.update(tower, clock, this.currentTick);
 
     // Update resident system (condo residents, work commutes, rent)
-    const people = this.populationSystem.getPeople();
-    const peopleMap = new Map(people.map(p => [p.id, p]));
     this.residentSystem.update(tower, peopleMap, clock.gameHour);
 
     // Update random events (VIP visitors, maintenance, etc.)

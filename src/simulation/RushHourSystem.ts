@@ -48,22 +48,24 @@ export class RushHourSystem {
 
   /**
    * Update rush hour mechanics
-   * Called every tick from PopulationSystem
+   * Called every tick from Game
+   * Returns newly spawned workers to be added to PopulationSystem
    */
   update(
     tower: Tower,
     clock: GameClock,
     people: Map<string, Person>,
     elevatorSystem: ElevatorSystem
-  ): void {
+  ): Person[] {
     const isWeekday = clock.gameDay >= 1 && clock.gameDay <= 5;
-    if (!isWeekday) return; // No rush hours on weekends (TODO: implement weekend schedule)
+    if (!isWeekday) return []; // No rush hours on weekends (TODO: implement weekend schedule)
 
     const currentTime = { hour: clock.gameHour, minute: clock.gameMinute };
+    let newWorkers: Person[] = [];
 
     // MORNING RUSH: Spawn workers at lobby
     if (this.isTimeFor(currentTime, this.config.morningStart) && this.lastMorningRush !== clock.gameDay) {
-      this.triggerMorningRush(tower, people, elevatorSystem);
+      newWorkers = this.triggerMorningRush(tower, people, elevatorSystem);
       this.lastMorningRush = clock.gameDay;
     }
 
@@ -74,20 +76,22 @@ export class RushHourSystem {
     }
 
     // LUNCH RUSH: Trigger in PopulationAI (already handled)
+    return newWorkers;
   }
 
   /**
    * Trigger morning rush - spawn workers at lobby
+   * Returns new workers to be added to PopulationSystem
    */
   private triggerMorningRush(
     tower: Tower,
     people: Map<string, Person>,
     elevatorSystem: ElevatorSystem
-  ): void {
+  ): Person[] {
     const offices = this.getOfficeBuildings(tower);
-    if (offices.length === 0) return;
+    if (offices.length === 0) return [];
 
-    let spawnedCount = 0;
+    const newWorkers: Person[] = [];
     const lobby = tower.floorsById[0]; // Ground floor
 
     for (const office of offices) {
@@ -119,17 +123,12 @@ export class RushHourSystem {
         const targetFloor = office.position.floor;
         const targetTile = office.position.startTile + 1;
         
-        // Set navigation goal
-        worker.goal = {
-          floor: targetFloor,
-          tile: targetTile,
-          type: 'building',
-        };
+        // Navigation will be handled by pathfinding system using destinationBuildingId
+        // No manual goal setting needed
 
-        people.set(worker.id, worker);
+        newWorkers.push(worker);
         workerIds.push(worker.id);
         this.activeWorkers.add(worker.id);
-        spawnedCount++;
       }
 
       this.officeAssignments.set(office.id, workerIds);
@@ -140,10 +139,11 @@ export class RushHourSystem {
     getEventBus().emitSync({
       type: 'NOTIFICATION',
       title: '🌅 Morning Rush Hour',
-      message: `${spawnedCount} workers arriving at the tower`,
+      message: `${newWorkers.length} workers arriving at the tower`,
     });
 
-    console.log(`🌅 MORNING RUSH: ${spawnedCount} workers spawned at lobby`);
+    console.log(`🌅 MORNING RUSH: ${newWorkers.length} workers spawned at lobby`);
+    return newWorkers;
   }
 
   /**
@@ -161,13 +161,9 @@ export class RushHourSystem {
       const person = people.get(personId);
       if (!person) continue;
 
-      // Navigate to lobby
-      person.goal = {
-        floor: 0,
-        tile: 5, // Lobby center
-        type: 'exit',
-      };
-      person.state = 'walking';
+      // Navigate to lobby (set destination to null to signal leaving)
+      person.destinationBuildingId = null;
+      person.state = 'leaving';
 
       leavingCount++;
     }
@@ -217,10 +213,10 @@ export class RushHourSystem {
       const person = people.get(personId);
       if (!person) continue;
 
-      // If worker is on ground floor and idle/walking after 5 PM, they're leaving
-      if (person.floor === 0 && person.goal?.type === 'exit') {
-        // Check if they reached the exit tile
-        if (Math.abs(person.tile - 5) < 1 && person.state === 'idle') {
+      // If worker is on ground floor and in leaving state
+      if (person.currentFloor === 0 && person.state === 'leaving') {
+        // Check if they reached the lobby area (near center)
+        if (Math.abs(person.currentTile - 5) < 2) {
           exitingIds.push(personId);
         }
       }
@@ -249,7 +245,7 @@ export class RushHourSystem {
    * Get current rush hour state
    */
   getRushHourState(clock: GameClock): 'morning' | 'lunch' | 'evening' | 'normal' {
-    const { hour, minute } = clock;
+    const { gameHour: hour, gameMinute: minute } = clock;
 
     if (this.isInRange({ hour, minute }, this.config.morningStart, this.config.morningEnd)) {
       return 'morning';

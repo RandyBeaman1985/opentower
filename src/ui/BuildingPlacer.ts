@@ -98,14 +98,19 @@ export class BuildingPlacer {
 
   // Elevator placement state
   private elevatorDragStart: { tile: number; floor: number } | null = null;
+  private errorMessage: string | null = null;
   private elevatorDragEnd: { tile: number; floor: number } | null = null;
   
   // Callback for elevator placement (so index.ts can create the shaft)
   private onElevatorPlaced: ((tile: number, minFloor: number, maxFloor: number) => void) | null = null;
+  
+  // Callback for elevator demolish (so index.ts can remove the shaft)
+  private onElevatorDemolished: ((tile: number, floor: number) => { success: boolean; refund: number }) | null = null;
 
   // Demolish mode state
   private demolishMode: boolean = false;
   private hoveredBuilding: Building | null = null;
+  private hoveredElevator: { tile: number; floor: number } | null = null;
 
   constructor(worldContainer: PIXI.Container) {
     this.parentContainer = worldContainer;
@@ -167,6 +172,11 @@ export class BuildingPlacer {
   setElevatorPlacedCallback(callback: (tile: number, minFloor: number, maxFloor: number) => void): void {
     this.onElevatorPlaced = callback;
   }
+  
+  /** Set callback for elevator demolish */
+  setElevatorDemolishedCallback(callback: (tile: number, floor: number) => { success: boolean; refund: number }): void {
+    this.onElevatorDemolished = callback;
+  }
 
   /** Set tower reference for validation */
   setTower(tower: Tower): void {
@@ -206,12 +216,21 @@ export class BuildingPlacer {
 
     const { floor, tile } = this.screenToTile(screenX, screenY, cameraX, cameraY, scale);
 
-    // Demolish mode - highlight building under cursor
+    // Demolish mode - highlight building or elevator under cursor
     if (this.demolishMode) {
       this.hoveredBuilding = this.findBuildingAt(floor, tile);
-      if (this.hoveredBuilding) {
-        this.drawDemolishHighlight(this.hoveredBuilding);
+      
+      // Also check for elevators (callback will provide the actual check)
+      if (!this.hoveredBuilding) {
+        this.hoveredElevator = { tile, floor };
+        // We'll draw a simple highlight - the actual detection happens in demolish callback
+        this.drawElevatorDemolishHighlight(tile, floor);
       } else {
+        this.hoveredElevator = null;
+        this.drawDemolishHighlight(this.hoveredBuilding);
+      }
+      
+      if (!this.hoveredBuilding && !this.hoveredElevator) {
         this.ghostGraphics.clear();
         this.ghostContainer.visible = false;
       }
@@ -279,6 +298,18 @@ export class BuildingPlacer {
     const maxFloor = Math.max(this.elevatorDragStart.floor, this.elevatorDragEnd.floor);
     const tile = this.elevatorDragStart.tile;
 
+    // 🆕 BUG-012 FIX: Check minimum height and provide feedback
+    const floorRange = maxFloor - minFloor;
+    if (floorRange < 1) {
+      console.warn('⚠️ Elevator too short: needs at least 2 floors');
+      this.errorMessage = 'Elevators need at least 2 floors';
+      setTimeout(() => { this.errorMessage = null; }, 3000);
+      this.elevatorDragStart = null;
+      this.elevatorDragEnd = null;
+      console.warn('⚠️ Elevator placement failed: needs at least 2 floors');
+      return false;
+    }
+
     // Validate placement
     if (!this.isValidElevatorPlacement(tile, minFloor, maxFloor)) {
       this.elevatorDragStart = null;
@@ -291,6 +322,7 @@ export class BuildingPlacer {
     if (!this.tower || this.tower.funds < cost) {
       this.elevatorDragStart = null;
       this.elevatorDragEnd = null;
+      console.warn(`⚠️ Elevator placement failed: not enough funds (need $${cost.toLocaleString()})`);
       return false;
     }
 
@@ -366,6 +398,42 @@ export class BuildingPlacer {
     this.ghostGraphics.stroke();
 
     // Draw X pattern for demolish
+    this.ghostGraphics.setStrokeStyle({ 
+      width: 2, 
+      color: 0xff0000,
+      alpha: 0.7 
+    });
+    this.ghostGraphics.moveTo(x, y);
+    this.ghostGraphics.lineTo(x + pixelWidth, y + pixelHeight);
+    this.ghostGraphics.moveTo(x + pixelWidth, y);
+    this.ghostGraphics.lineTo(x, y + pixelHeight);
+    this.ghostGraphics.stroke();
+
+    this.ghostContainer.visible = true;
+  }
+  
+  /** Draw demolish highlight for elevator at given tile/floor */
+  private drawElevatorDemolishHighlight(tile: number, floor: number): void {
+    this.ghostGraphics.clear();
+
+    const x = tile * RENDER_CONSTANTS.TILE_WIDTH;
+    const y = floor * RENDER_CONSTANTS.FLOOR_HEIGHT;
+    const pixelWidth = RENDER_CONSTANTS.TILE_WIDTH; // Elevator is 1 tile wide
+    const pixelHeight = RENDER_CONSTANTS.FLOOR_HEIGHT;
+
+    // Red overlay
+    this.ghostGraphics.rect(x, y, pixelWidth, pixelHeight);
+    this.ghostGraphics.fill({ color: 0xff0000, alpha: 0.4 });
+    
+    // Bold red border
+    this.ghostGraphics.setStrokeStyle({ 
+      width: 3, 
+      color: 0xff0000,
+      alpha: 0.9 
+    });
+    this.ghostGraphics.stroke();
+
+    // Draw X pattern
     this.ghostGraphics.setStrokeStyle({ 
       width: 2, 
       color: 0xff0000,
@@ -503,9 +571,19 @@ export class BuildingPlacer {
   placeBuilding(): Building | null {
     if (!this.enabled || !this.tower) return null;
 
-    // Demolish mode - demolish hovered building
-    if (this.demolishMode && this.hoveredBuilding) {
-      return this.demolishBuilding(this.hoveredBuilding);
+    // Demolish mode - demolish hovered building or elevator
+    if (this.demolishMode) {
+      if (this.hoveredBuilding) {
+        return this.demolishBuilding(this.hoveredBuilding);
+      }
+      if (this.hoveredElevator && this.onElevatorDemolished) {
+        const result = this.onElevatorDemolished(this.hoveredElevator.tile, this.hoveredElevator.floor);
+        if (result.success) {
+          this.tower.funds += result.refund;
+          console.log(`Demolished elevator - Refunded $${result.refund.toLocaleString()}`);
+        }
+        return null; // Elevator demolish doesn't return a Building
+      }
     }
 
     // Regular placement mode

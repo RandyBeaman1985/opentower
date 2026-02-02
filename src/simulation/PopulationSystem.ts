@@ -136,6 +136,12 @@ export class PopulationSystem {
 
     this.lastImmigrationTick = currentTick;
 
+    // 🆕 BUG-017 FIX: Maximum population cap (SimTower had ~15K limit)
+    const MAX_POPULATION = 10000;
+    if (this.people.size >= MAX_POPULATION) {
+      return; // Population cap reached
+    }
+
     // Immigration rate based on star rating
     // 1 star: 10% chance, 2 stars: 25% chance, 3 stars: 50% chance, etc.
     const immigrationChance = Math.min(0.9, tower.starRating * 0.2);
@@ -436,6 +442,9 @@ export class PopulationSystem {
       p => p.state === 'waitingForElevator'
     );
     
+    // 🆕 BUG-016 FIX: Track which cars have boarded someone this tick
+    const carsBoarded = new Set<string>();
+    
     for (const person of waitingPeople) {
       const shaftId = person.getWaitingElevatorShaftId();
       if (shaftId === null) continue;
@@ -445,6 +454,9 @@ export class PopulationSystem {
       
       // Check each car in shaft
       for (const car of shaft.cars) {
+        // Skip if this car already boarded someone this tick (prevents overlap)
+        if (carsBoarded.has(car.id)) continue;
+        
         const currentFloorInt = Math.floor(car.currentFloor);
         
         // Is car at person's floor with doors open?
@@ -453,6 +465,7 @@ export class PopulationSystem {
           if (destinationFloor !== null) {
             // Board the car!
             if (car.boardPassenger(person.id, destinationFloor)) {
+              carsBoarded.add(car.id); // Mark this car as boarded
               // Calculate wait time
               const waitTime = person.waitStartTick !== null ? currentTick - person.waitStartTick : 0;
               

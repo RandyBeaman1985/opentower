@@ -403,7 +403,7 @@ export class EventSystem {
       triggeredAt: currentTick,
       affectedFloors: [floor],
       affectedBuildingIds: [building.id],
-      data: fireData,
+      data: fireData as unknown as Record<string, unknown>,
     };
   }
   
@@ -714,7 +714,7 @@ export class EventSystem {
   private createCockroachEvent(tower: Tower, currentTick: number, eventId: string): GameEvent {
     // Find hotels
     const hotels = Object.values(tower.buildingsById).filter(
-      (b: Building) => b.type === 'singleRoom' || b.type === 'doubleRoom' || b.type === 'suite'
+      (b: Building) => b.type === 'hotelSingle' || b.type === 'hotelTwin' || b.type === 'hotelSuite'
     );
     
     if (hotels.length === 0) return this.createDummyEvent(eventId, 'cockroaches', currentTick);

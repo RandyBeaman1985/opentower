@@ -181,7 +181,7 @@ export class ElevatorRenderer {
     graphics.stroke();
     
     // Enhanced door animation
-    const doorProgress = car.doorsOpen ? Math.min(1, car.doorTimer / 10) : Math.max(0, 1 - car.doorTimer / 5);
+    const doorProgress = car.doorsOpen ? Math.min(1, car.getDoorTimer() / 10) : Math.max(0, 1 - car.getDoorTimer() / 5);
     const doorOffset = doorProgress * (carWidth / 2);
     
     // Left door panel (slides left)
@@ -211,7 +211,7 @@ export class ElevatorRenderer {
     }
     
     // Door state indicator (opening/closing animation)
-    if (car.doorsOpen && car.doorTimer > 0) {
+    if (car.doorsOpen && car.getDoorTimer() > 0) {
       // "Boarding" or "Exiting" indicator with animation
       const pulseSpeed = 0.005;
       const pulseAlpha = 0.5 + Math.sin(Date.now() * pulseSpeed) * 0.3;
@@ -229,7 +229,7 @@ export class ElevatorRenderer {
       stateText.y = -carHeight / 2 - 10;
       stateText.alpha = pulseAlpha;
       sprite.addChild(stateText);
-    } else if (!car.doorsOpen && car.doorTimer > 0 && car.doorTimer < 5) {
+    } else if (!car.doorsOpen && car.getDoorTimer() > 0 && car.getDoorTimer() < 5) {
       // Closing indicator
       const stateText = new PIXI.Text({
         text: '▶ ◀',
@@ -266,18 +266,27 @@ export class ElevatorRenderer {
       graphics.stroke();
     }
     
-    // Enhanced passenger count display
+    // 🆕 BUG-011 FIX: Enhanced passenger count display with capacity
     if (car.passengerIds.length > 0) {
-      // Background circle for count
+      const capacity = car.maxCapacity;
+      const occupancy = car.passengerIds.length / capacity;
+      
+      // Background with color coding for fullness
       const countBg = new PIXI.Graphics();
-      countBg.circle(0, 0, 7);
-      countBg.fill({ color: 0x000000, alpha: 0.6 });
+      countBg.circle(0, 0, 10);
+      let bgColor = 0x000000;
+      if (occupancy >= 0.8) {
+        bgColor = 0xff4444; // Red when >80% full
+      } else if (occupancy >= 0.5) {
+        bgColor = 0xff8800; // Orange when >50% full
+      }
+      countBg.fill({ color: bgColor, alpha: 0.7 });
       sprite.addChild(countBg);
       
       const passengerText = new PIXI.Text({
-        text: `${car.passengerIds.length}`,
+        text: `${car.passengerIds.length}/${capacity}`,
         style: {
-          fontSize: 9,
+          fontSize: 7,
           fill: 0xffffff,
           fontFamily: 'monospace',
           fontWeight: 'bold',

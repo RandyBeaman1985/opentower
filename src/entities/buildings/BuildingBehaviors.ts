@@ -183,11 +183,11 @@ export function processQuarterlyTick(
 
   // Evaluation day logic for tenants
   if (building.type === 'office' || building.type === 'condo') {
-    const dayOfQuarter = Math.floor((context.currentTime.day - 1) % 90);
+    const dayOfQuarter = Math.floor((context.currentTime.gameDay - 1) % 90);
     
     // Evaluation day is every 90 days
     if (dayOfQuarter === 0) {
-      building.lastEvaluationDate = context.currentTime.day;
+      building.lastEvaluationDate = context.currentTime.gameDay;
       
       if (satisfaction < 60) {
         building.consecutiveBadEvals = (building.consecutiveBadEvals || 0) + 1;

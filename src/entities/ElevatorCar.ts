@@ -382,6 +382,20 @@ export class ElevatorCar {
   }
   
   /**
+   * Get door timer (for rendering/animations)
+   */
+  getDoorTimer(): number {
+    return this.doorTimer;
+  }
+  
+  /**
+   * Get door open duration
+   */
+  getDoorOpenDuration(): number {
+    return this.doorOpenDuration;
+  }
+  
+  /**
    * Get all pending calls (for debugging/UI)
    */
   getPendingCalls(): { up: number[]; down: number[]; car: number[] } {

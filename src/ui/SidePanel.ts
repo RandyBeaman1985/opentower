@@ -10,8 +10,9 @@
  * Slides in from the left side of the screen.
  */
 
-import type { BuildingType, QuarterlyReport } from '@/interfaces';
+import type { BuildingType } from '@/interfaces';
 import { BUILDING_CONFIGS } from '@/interfaces';
+import type { QuarterlyReport } from '@simulation/EconomicSystem';
 
 export interface BuildingInfo {
   id: string;
@@ -458,14 +459,19 @@ export class SidePanel {
       shop: 'Retail Shop',
       hotelSingle: 'Hotel (Single)',
       hotelTwin: 'Hotel (Twin)',
+      hotelSuite: 'Hotel (Suite)',
       stairs: 'Stairs',
-      parking: 'Parking',
+      escalator: 'Escalator',
+      parkingRamp: 'Parking Ramp',
+      parkingSpace: 'Parking Space',
       medical: 'Medical Office',
-      theater: 'Movie Theater',
-      party: 'Party Hall',
+      cinema: 'Movie Theater',
+      partyHall: 'Party Hall',
       security: 'Security',
       housekeeping: 'Housekeeping',
       recycling: 'Recycling Center',
+      metro: 'Metro Station',
+      cathedral: 'Cathedral',
     };
     return names[type] || type;
   }
@@ -480,14 +486,19 @@ export class SidePanel {
       shop: 'Retail stores. Attracts shoppers and generates income.',
       hotelSingle: 'Single-occupancy hotel room. For short-term guests.',
       hotelTwin: 'Double-occupancy hotel room. Higher capacity than single.',
+      hotelSuite: 'Luxury hotel suite. Premium accommodations for VIP guests.',
       stairs: 'Emergency stairway. Provides backup access between floors.',
-      parking: 'Parking garage. Required for office and condo buildings.',
+      escalator: 'Moving stairway. Efficient transport for adjacent floors.',
+      parkingRamp: 'Parking garage ramp. Connects parking levels.',
+      parkingSpace: 'Parking spaces. Required for office and condo buildings.',
       medical: 'Medical office. Provides healthcare services.',
-      theater: 'Movie theater. Entertainment venue that operates in evenings.',
-      party: 'Party hall. Can be rented for events.',
+      cinema: 'Movie theater. Entertainment venue that operates in evenings.',
+      partyHall: 'Party hall. Can be rented for events.',
       security: 'Security office. Helps prevent crime.',
       housekeeping: 'Housekeeping service. Maintains building cleanliness.',
       recycling: 'Recycling center. Improves environmental rating.',
+      metro: 'Metro station. Provides underground transit access.',
+      cathedral: 'Cathedral. A prestigious landmark building.',
     };
     return descriptions[type] || 'A building in your tower.';
   }

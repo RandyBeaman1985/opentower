@@ -63,6 +63,11 @@ export interface PersonAIData {
   goalStartTick: number | null;
   lastDecisionTick: number;
   
+  // Pathfinding retry tracking (BUG-013 fix)
+  pathfindingFailures: number;
+  lastPathfindingAttemptTick: number | null;
+  stuckSince: number | null; // Tick when person became stuck
+  
   // Memory
   favoriteRestaurant: string | null;
   knownElevatorShafts: string[]; // Learned elevator locations
@@ -135,6 +140,9 @@ export class PopulationAI {
       currentGoal: null,
       goalStartTick: null,
       lastDecisionTick: 0,
+      pathfindingFailures: 0,
+      lastPathfindingAttemptTick: null,
+      stuckSince: null,
       favoriteRestaurant: null,
       knownElevatorShafts: [],
       badExperienceBuildings: [],
@@ -301,7 +309,7 @@ export class PopulationAI {
         console.log(`🍔 ${person.type} is HUNGRY (${needs.hunger.toFixed(0)}%) - seeking food`);
         aiData.currentGoal = 'eat';
         aiData.goalStartTick = currentTick;
-        this.seekFood(person, tower, elevatorSystem, aiData);
+        this.seekFood(person, tower, elevatorSystem, aiData, currentTick);
         return;
       }
     }
@@ -312,7 +320,7 @@ export class PopulationAI {
         console.log(`😴 ${person.type} is EXHAUSTED (${needs.energy.toFixed(0)}%) - going home`);
         aiData.currentGoal = 'rest';
         aiData.goalStartTick = currentTick;
-        this.goHome(person, tower, elevatorSystem);
+        this.goHome(person, tower, elevatorSystem, currentTick);
         return;
       }
     }
@@ -320,14 +328,14 @@ export class PopulationAI {
     // Check scheduled activities (work, lunch, etc.)
     const scheduledAction = this.checkSchedule(person, clock);
     if (scheduledAction) {
-      this.executeScheduledAction(person, scheduledAction, tower, elevatorSystem, aiData);
+      this.executeScheduledAction(person, scheduledAction, tower, elevatorSystem, aiData, currentTick);
       return;
     }
     
     // Random activities when satisfied
     if (person.state === 'idle' && Math.random() < 0.01) {
       // 1% chance per decision to do something random
-      this.doRandomActivity(person, tower, elevatorSystem, aiData);
+      this.doRandomActivity(person, tower, elevatorSystem, aiData, currentTick);
     }
   }
   
@@ -355,7 +363,8 @@ export class PopulationAI {
     action: string,
     tower: Tower,
     elevatorSystem: ElevatorSystem,
-    aiData: PersonAIData
+    aiData: PersonAIData,
+    currentTick: number
   ): void {
     switch (action) {
       case 'arrive':
@@ -364,7 +373,7 @@ export class PopulationAI {
         if (person.destinationBuildingId) {
           const building = tower.buildingsById[person.destinationBuildingId];
           if (building) {
-            this.navigateTo(person, building, tower, elevatorSystem);
+            this.navigateTo(person, building, tower, elevatorSystem, currentTick);
           }
         }
         break;
@@ -372,7 +381,7 @@ export class PopulationAI {
       case 'lunch':
         aiData.currentGoal = 'eat';
         aiData.needs.hunger = Math.min(50, aiData.needs.hunger); // Make hungry
-        this.seekFood(person, tower, elevatorSystem, aiData);
+        this.seekFood(person, tower, elevatorSystem, aiData, currentTick);
         break;
         
       case 'return':
@@ -380,7 +389,7 @@ export class PopulationAI {
         if (person.destinationBuildingId) {
           const building = tower.buildingsById[person.destinationBuildingId];
           if (building) {
-            this.navigateTo(person, building, tower, elevatorSystem);
+            this.navigateTo(person, building, tower, elevatorSystem, currentTick);
           }
         }
         break;
@@ -399,7 +408,8 @@ export class PopulationAI {
     person: Person,
     tower: Tower,
     elevatorSystem: ElevatorSystem,
-    aiData: PersonAIData
+    aiData: PersonAIData,
+    currentTick: number
   ): void {
     const foodBuildings = this.findNearbyFood(person, tower);
     
@@ -420,7 +430,7 @@ export class PopulationAI {
       targetFood = foodBuildings[Math.floor(Math.random() * foodBuildings.length)];
     }
     
-    this.navigateTo(person, targetFood, tower, elevatorSystem);
+    this.navigateTo(person, targetFood, tower, elevatorSystem, currentTick);
   }
   
   /**
@@ -442,12 +452,12 @@ export class PopulationAI {
   /**
    * Go home (for residents)
    */
-  private goHome(person: Person, tower: Tower, elevatorSystem: ElevatorSystem): void {
+  private goHome(person: Person, tower: Tower, elevatorSystem: ElevatorSystem, currentTick: number): void {
     if (!person.homeBuildingId) return;
     
     const home = tower.buildingsById[person.homeBuildingId];
     if (home) {
-      this.navigateTo(person, home, tower, elevatorSystem);
+      this.navigateTo(person, home, tower, elevatorSystem, currentTick);
     }
   }
   
@@ -458,7 +468,8 @@ export class PopulationAI {
     person: Person,
     tower: Tower,
     elevatorSystem: ElevatorSystem,
-    aiData: PersonAIData
+    aiData: PersonAIData,
+    currentTick: number
   ): void {
     const activities = ['shopping', 'entertainment'];
     const activity = activities[Math.floor(Math.random() * activities.length)];
@@ -475,7 +486,7 @@ export class PopulationAI {
     if (targets.length > 0) {
       const target = targets[Math.floor(Math.random() * targets.length)];
       aiData.currentGoal = activity as any;
-      this.navigateTo(person, target, tower, elevatorSystem);
+      this.navigateTo(person, target, tower, elevatorSystem, currentTick);
     }
   }
   
@@ -486,8 +497,12 @@ export class PopulationAI {
     person: Person,
     building: Building,
     tower: Tower,
-    elevatorSystem: ElevatorSystem
+    elevatorSystem: ElevatorSystem,
+    currentTick: number
   ): void {
+    const aiData = this.personData.get(person.id);
+    if (!aiData) return;
+    
     const path = this.pathfinding.findPath(
       person.currentFloor,
       person.currentTile,
@@ -498,6 +513,10 @@ export class PopulationAI {
     );
     
     if (path.length > 0) {
+      // Path found! Reset failure tracking
+      aiData.pathfindingFailures = 0;
+      aiData.stuckSince = null;
+      
       person.followPath(path);
       
       // Request elevator if needed
@@ -508,12 +527,40 @@ export class PopulationAI {
         }
       }
     } else {
-      // No path found - very frustrating!
+      // No path found - track failures
+      aiData.pathfindingFailures++;
+      aiData.lastPathfindingAttemptTick = currentTick;
+      
+      if (aiData.stuckSince === null) {
+        aiData.stuckSince = currentTick;
+      }
+      
+      // Increase stress
       person.stress = Math.min(100, person.stress + 15);
-      const aiData = this.personData.get(person.id);
-      if (aiData) {
-        aiData.satisfaction.overall = Math.max(0, aiData.satisfaction.overall - 10);
-        aiData.satisfaction.commuteRating = Math.max(1, aiData.satisfaction.commuteRating - 1);
+      aiData.satisfaction.overall = Math.max(0, aiData.satisfaction.overall - 10);
+      aiData.satisfaction.commuteRating = Math.max(1, aiData.satisfaction.commuteRating - 1);
+      
+      // BUG-013 FIX: After 5 failed attempts OR 30 seconds stuck, give up
+      const MAX_PATHFINDING_FAILURES = 5;
+      const MAX_STUCK_TICKS = 3000; // 30 seconds at 100ms/tick
+      const ticksStuck = currentTick - aiData.stuckSince;
+      
+      if (aiData.pathfindingFailures >= MAX_PATHFINDING_FAILURES || ticksStuck >= MAX_STUCK_TICKS) {
+        console.warn(`⚠️ Person ${person.id} stuck in unreachable location (${aiData.pathfindingFailures} failures, ${ticksStuck} ticks). Despawning.`);
+        console.log(`   Location: floor ${person.currentFloor}, tile ${person.currentTile}`);
+        console.log(`   Target: ${building.type} at floor ${building.position.floor}`);
+        
+        // Force person to leave the tower
+        person.state = 'leaving';
+        person.destinationBuildingId = null;
+        
+        // Add thought bubble
+        person.currentThought = "Can't get there!";
+        person.thoughtExpiresTick = currentTick + 300; // Show for 30 seconds
+        
+        // Mark building as problematic
+        aiData.badExperienceBuildings.push(building.id);
+        aiData.satisfaction.overall = 0; // Completely unsatisfied
       }
     }
   }

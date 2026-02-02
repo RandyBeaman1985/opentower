@@ -145,7 +145,7 @@ export class TopBar {
     const speeds: Array<{ speed: GameSpeed; label: string; icon: string }> = [
       { speed: 0, label: 'Pause', icon: '⏸️' },
       { speed: 1, label: '1x', icon: '▶️' },
-      { speed: 3, label: '3x', icon: '⏩' },
+      { speed: 2, label: '2x', icon: '⏩' },
     ];
 
     speeds.forEach(({ speed, label, icon }) => {
@@ -265,9 +265,11 @@ export class TopBar {
 
   /** Update date/time display */
   updateDateTime(clock: GameClock): void {
-    const day = clock.getDay();
-    const timeString = clock.getTimeString();
-    const quarter = clock.getQuarter();
+    const day = clock.gameDay;
+    const hour = String(clock.gameHour).padStart(2, '0');
+    const minute = String(clock.gameMinute).padStart(2, '0');
+    const timeString = `${hour}:${minute}`;
+    const quarter = clock.gameQuarter;
     
     this.dateDisplay.innerHTML = `📅 <span>Day ${day}, ${timeString} (Q${quarter})</span>`;
   }
