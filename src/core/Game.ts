@@ -12,10 +12,19 @@
 import { Application } from 'pixi.js';
 import type { GameSpeed } from '@/interfaces';
 import { GamePhase } from '@/interfaces';
-import { ClockManager } from './Clock';
 import { getEventBus } from './EventBus';
 import { TowerManager } from '@simulation/Tower';
 import { TowerRenderer } from '@rendering/TowerRenderer';
+import { PopulationSystem } from '@simulation/PopulationSystem';
+import { ElevatorSystem } from '@simulation/ElevatorSystem';
+import { EconomicSystem } from '@simulation/EconomicSystem';
+import { SaveLoadManager } from './SaveLoadManager';
+import { TimeSystem } from '@simulation/TimeSystem';
+import { HotelSystem } from '@simulation/HotelSystem';
+import { ResidentSystem } from '@simulation/ResidentSystem';
+import { RandomEventSystem } from '@simulation/RandomEventSystem';
+import { EvaluationSystem } from '@simulation/EvaluationSystem';
+import { OperatingCostSystem } from '@simulation/OperatingCostSystem';
 
 export interface GameConfig {
   /** Width of the game canvas */
@@ -51,11 +60,21 @@ export enum GameState {
 export class Game {
   private config: Required<GameConfig>;
   private app: Application | null = null;
-  private clockManager: ClockManager;
+  private timeSystem: TimeSystem;
   private towerManager: TowerManager;
+  private populationSystem: PopulationSystem;
+  private elevatorSystem: ElevatorSystem;
+  private economicSystem: EconomicSystem;
+  private hotelSystem: HotelSystem;
+  private residentSystem: ResidentSystem;
+  private randomEventSystem: RandomEventSystem;
+  private evaluationSystem: EvaluationSystem;
+  private operatingCostSystem: OperatingCostSystem;
+  private saveLoadManager: SaveLoadManager | null = null;
   private towerRenderer: TowerRenderer | null = null;
   private state: GameState = GameState.INITIALIZING;
   private frameId: number | null = null;
+  private currentTick: number = 0;
 
   // Performance tracking
   private lastFrameTime = 0;
@@ -70,9 +89,17 @@ export class Game {
       container: config.container ?? 'game-container',
     };
 
-    this.clockManager = new ClockManager();
-    this.clockManager.setSpeed(this.config.initialSpeed);
+    this.timeSystem = new TimeSystem();
+    this.timeSystem.setCustomSpeed(this.config.initialSpeed);
     this.towerManager = new TowerManager();
+    this.populationSystem = new PopulationSystem();
+    this.elevatorSystem = new ElevatorSystem();
+    this.economicSystem = new EconomicSystem();
+    this.hotelSystem = new HotelSystem();
+    this.residentSystem = new ResidentSystem();
+    this.randomEventSystem = new RandomEventSystem();
+    this.evaluationSystem = new EvaluationSystem();
+    this.operatingCostSystem = new OperatingCostSystem();
   }
 
   /**
@@ -122,6 +149,14 @@ export class Game {
     if (import.meta.env.DEV) {
       this.towerRenderer.setDebugMode(true);
     }
+
+    // Initialize save/load manager
+    this.saveLoadManager = new SaveLoadManager(
+      this.towerManager,
+      this.populationSystem,
+      this.elevatorSystem,
+      this.economicSystem
+    );
   }
 
   /**
@@ -131,7 +166,7 @@ export class Game {
     if (this.state === GameState.RUNNING) return;
 
     this.state = GameState.RUNNING;
-    this.clockManager.start();
+    this.timeSystem.start();
     this.lastFrameTime = performance.now();
     this.frameCount = 0;
 
@@ -145,7 +180,7 @@ export class Game {
     if (this.state !== GameState.RUNNING) return;
 
     this.state = GameState.PAUSED;
-    this.clockManager.setSpeed(0);
+    this.timeSystem.pause();
 
     if (this.frameId !== null) {
       cancelAnimationFrame(this.frameId);
@@ -160,7 +195,7 @@ export class Game {
     if (this.state !== GameState.PAUSED) return;
 
     this.state = GameState.RUNNING;
-    this.clockManager.setSpeed(this.config.initialSpeed);
+    this.timeSystem.resume();
     this.lastFrameTime = performance.now();
 
     this.gameLoop(this.lastFrameTime);
@@ -171,7 +206,7 @@ export class Game {
    */
   stop(): void {
     this.state = GameState.STOPPED;
-    this.clockManager.stop();
+    this.timeSystem.stop();
 
     if (this.frameId !== null) {
       cancelAnimationFrame(this.frameId);
@@ -195,7 +230,7 @@ export class Game {
     getEventBus().processPhase(GamePhase.PRE_UPDATE);
 
     // Get number of simulation ticks to process
-    const tickCount = this.clockManager.update(currentTime);
+    const tickCount = this.timeSystem.update(currentTime);
 
     // Run simulation ticks
     for (let i = 0; i < tickCount; i++) {
@@ -210,7 +245,7 @@ export class Game {
     getEventBus().processPhase(GamePhase.POST_UPDATE);
 
     // Render
-    const alpha = this.clockManager.getInterpolationAlpha();
+    const alpha = this.timeSystem.getInterpolationAlpha();
     this.render(alpha);
     getEventBus().processPhase(GamePhase.RENDER);
 
@@ -222,11 +257,117 @@ export class Game {
    * Run one simulation tick
    */
   private simulationTick(): void {
-    // TODO: Process simulation
-    // - Update elevator positions
-    // - Move people
-    // - Update building states
-    // - Process economic changes
+    this.currentTick++;
+
+    const tower = this.towerManager.getTower();
+    const clock = this.timeSystem.getClock();
+    const gameSpeed = clock.speed;
+
+    // Update elevators
+    this.elevatorSystem.update(tower, gameSpeed);
+
+    // Update population (now with elevator integration and food building tracking)
+    this.populationSystem.update(tower, clock, this.currentTick, this.elevatorSystem, this.economicSystem);
+
+    // Update tower population count
+    this.towerManager.updatePopulation(this.populationSystem.getPopulation());
+
+    // Update hotel system (check-ins, check-outs, room income)
+    this.hotelSystem.update(tower, clock, this.currentTick);
+
+    // Update resident system (condo residents, work commutes, rent)
+    const people = this.populationSystem.getPeople();
+    const peopleMap = new Map(people.map(p => [p.id, p]));
+    this.residentSystem.update(tower, peopleMap, clock.gameHour);
+
+    // Update random events (VIP visitors, maintenance, etc.)
+    this.randomEventSystem.update(tower, this.currentTick);
+
+    // Update building evaluations (satisfaction ratings based on wait times, services, etc.)
+    this.evaluationSystem.update(tower, people, this.currentTick);
+
+    // Update operating costs (daily expenses, bankruptcy check)
+    this.operatingCostSystem.update(tower, this.currentTick);
+
+    // Update economics (quarterly collection, now includes hotel income and rent)
+    const hotelIncome = this.hotelSystem.getQuarterlyIncome();
+    const rentIncome = this.residentSystem.getQuarterlyRentIncome();
+    this.economicSystem.update(tower, clock, this.currentTick, hotelIncome + rentIncome);
+
+    // Update star rating (every 60 ticks = 1 second)
+    if (this.currentTick % 60 === 0) {
+      this.updateStarRating();
+    }
+
+    // Process evaluation consequences (tenant departures, buybacks)
+    if (this.currentTick % 900 === 0) { // Every quarter
+      this.processEvaluationConsequences();
+    }
+  }
+
+  /**
+   * Process evaluation consequences (quarterly)
+   * - Offices: Low evaluation → tenant leaves
+   * - Condos: Low evaluation → forced buyback
+   * - Hotels: Evaluation affects occupancy
+   */
+  private processEvaluationConsequences(): void {
+    const tower = this.towerManager.getTower();
+    
+    // Use the comprehensive tenant departure logic from EconomySystem
+    this.economicSystem.checkTenantDepartures(tower, this.evaluationSystem);
+    
+    // CONDOS: Also check for forced buyback (severe cases)
+    const buildings = Object.values(tower.buildingsById);
+    for (const building of buildings) {
+      const evaluation = this.evaluationSystem.getScore(building.id);
+      
+      // CONDOS: Red evaluation (<30%) → forced buyback
+      if (building.type === 'condo' && evaluation < 30 && building.state === 'active') {
+        // Force buyback at purchase price
+        const buybackCost = 100000; // TODO: Get actual sale price from building data
+        this.towerManager.modifyFunds(-buybackCost);
+        building.state = 'vacant';
+        building.occupantIds = [];
+        
+        getEventBus().emitSync({
+          type: 'NOTIFICATION',
+          title: 'Condo Buyback Required',
+          message: `Resident moved out due to terrible conditions. Buyback: -$${buybackCost.toLocaleString()}`,
+          severity: 'critical',
+        });
+        
+        console.log(`💸 Forced condo buyback: -$${buybackCost.toLocaleString()} (evaluation: ${Math.round(evaluation)}%)`);
+      }
+
+      // HOTELS: Evaluation affects occupancy (handled by HotelSystem)
+      // No action needed here
+    }
+  }
+
+  /**
+   * Update star rating based on population, happiness, and profit
+   * Called once per second (every 60 ticks)
+   */
+  private updateStarRating(): void {
+    // Calculate happiness (% of people with normal stress)
+    const people = this.populationSystem.getPeople();
+    let happyPeople = 0;
+
+    for (const person of people) {
+      if (person.getStressLevel() === 'normal') {
+        happyPeople++;
+      }
+    }
+
+    const happinessPercent = people.length > 0 ? (happyPeople / people.length) * 100 : 100;
+
+    // Get daily income from economics
+    const cashFlow = this.economicSystem.getCashFlowSummary();
+    const dailyIncome = cashFlow.incomePerDay;
+
+    // Update tower star rating
+    this.towerManager.updateStarRatingFactors(happinessPercent, dailyIncome);
   }
 
   /**
@@ -248,9 +389,12 @@ export class Game {
     if (!this.towerRenderer) return;
 
     const tower = this.towerManager.getTower();
+    const people = this.populationSystem.getPeople();
+    const elevatorShafts = this.elevatorSystem.getShafts();
+    const timeOfDayState = this.timeSystem.getTimeOfDayState();
     const deltaTime = 1 / 60; // Assuming 60fps for camera updates
 
-    this.towerRenderer.render(tower, deltaTime);
+    this.towerRenderer.render(tower, deltaTime, people, elevatorShafts, timeOfDayState);
   }
 
   /**
@@ -276,10 +420,18 @@ export class Game {
   }
 
   /**
-   * Get the clock manager
+   * Get the time system
    */
-  getClockManager(): ClockManager {
-    return this.clockManager;
+  getTimeSystem(): TimeSystem {
+    return this.timeSystem;
+  }
+
+  /**
+   * Get the clock manager (legacy support)
+   * @deprecated Use getTimeSystem() instead
+   */
+  getClockManager() {
+    return this.timeSystem.getClockManager();
   }
 
   /**
@@ -300,28 +452,28 @@ export class Game {
    * Set game speed
    */
   setSpeed(speed: GameSpeed): void {
-    this.clockManager.setSpeed(speed);
+    this.timeSystem.setCustomSpeed(speed);
   }
 
   /**
    * Get current game speed
    */
   getSpeed(): GameSpeed {
-    return this.clockManager.getClock().speed;
+    return this.timeSystem.getSpeed();
   }
 
   /**
    * Get formatted time string
    */
   getFormattedTime(): string {
-    return this.clockManager.getFormattedTime();
+    return this.timeSystem.getFormattedTime();
   }
 
   /**
    * Get formatted date string
    */
   getFormattedDate(): string {
-    return this.clockManager.getFormattedDate();
+    return this.timeSystem.getFormattedDate();
   }
 
   /**
@@ -339,10 +491,86 @@ export class Game {
   }
 
   /**
+   * Get the population system
+   */
+  getPopulationSystem(): PopulationSystem {
+    return this.populationSystem;
+  }
+
+  /**
+   * Get the elevator system
+   */
+  getElevatorSystem(): ElevatorSystem {
+    return this.elevatorSystem;
+  }
+
+  /**
+   * Get the economic system
+   */
+  getEconomicSystem(): EconomicSystem {
+    return this.economicSystem;
+  }
+
+  /**
+   * Get the evaluation system
+   */
+  getEvaluationSystem(): EvaluationSystem {
+    return this.evaluationSystem;
+  }
+
+  /**
+   * Get the operating cost system
+   */
+  getOperatingCostSystem(): OperatingCostSystem {
+    return this.operatingCostSystem;
+  }
+
+  /**
+   * Get the time of day system (legacy support)
+   * @deprecated Use getTimeSystem().getTimeOfDaySystem() instead
+   */
+  getTimeOfDaySystem() {
+    return this.timeSystem.getTimeOfDaySystem();
+  }
+
+  /**
+   * Get the hotel system
+   */
+  getHotelSystem(): HotelSystem {
+    return this.hotelSystem;
+  }
+
+  /**
+   * Get the resident system
+   */
+  getResidentSystem(): ResidentSystem {
+    return this.residentSystem;
+  }
+
+  /**
+   * Get the random event system
+   */
+  getRandomEventSystem(): RandomEventSystem {
+    return this.randomEventSystem;
+  }
+
+  /**
+   * Get the save/load manager
+   */
+  getSaveLoadManager(): SaveLoadManager | null {
+    return this.saveLoadManager;
+  }
+
+  /**
    * Destroy the game and clean up resources
    */
   destroy(): void {
     this.stop();
+
+    // Stop auto-save
+    if (this.saveLoadManager) {
+      this.saveLoadManager.stopAutoSave();
+    }
 
     if (this.towerRenderer) {
       this.towerRenderer.destroy();

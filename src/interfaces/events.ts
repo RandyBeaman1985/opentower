@@ -46,7 +46,8 @@ export type SimulationEvent =
   | { type: 'QUARTER_END'; quarter: number; year: number; summary: QuarterlySnapshot }
   | { type: 'DAY_CHANGE'; day: 'weekday' | 'weekend'; dayOfWeek: number }
   | { type: 'HOUR_CHANGE'; hour: number }
-  | { type: 'SPEED_CHANGE'; oldSpeed: number; newSpeed: number };
+  | { type: 'SPEED_CHANGE'; oldSpeed: number; newSpeed: number }
+  | { type: 'TIME_EVENT'; eventId: string; message: string };
 
 // Building lifecycle events
 export type BuildingEvent =
@@ -84,8 +85,12 @@ export type EconomicEvent =
   | { type: 'INSUFFICIENT_FUNDS'; required: number; available: number }
   | { type: 'INCOME_RECEIVED'; amount: number; source: string; buildingId?: string }
   | { type: 'EXPENSE_PAID'; amount: number; reason: string; buildingId?: string }
-  | { type: 'BANKRUPTCY_WARNING'; funds: number }
-  | { type: 'BANKRUPTCY'; finalFunds: number };
+  | { type: 'BANKRUPTCY_WARNING'; funds: number; severity?: number; debtAmount?: number; gracePeriodRemaining?: number }
+  | { type: 'BANKRUPTCY'; finalFunds: number }
+  | { type: 'BANKRUPTCY_CLEARED' }
+  | { type: 'DAILY_EXPENSES'; report: any }
+  | { type: 'QUARTERLY_COLLECTION'; report: any; newBalance: number }
+  | { type: 'TENANT_DEPARTURES'; departures: any[]; totalLostIncome: number };
 
 // Progression events
 export type ProgressionEvent =
@@ -95,7 +100,8 @@ export type ProgressionEvent =
   | { type: 'STAR_RATING_CHANGED'; oldRating: StarRating; newRating: StarRating }
   | { type: 'BUILDING_UNLOCKED'; buildingType: BuildingType }
   | { type: 'TOWER_STATUS_ACHIEVED' }
-  | { type: 'VICTORY'; finalPopulation: number };
+  | { type: 'VICTORY'; finalPopulation: number }
+  | { type: 'GAME_OVER'; reason: string; [key: string]: any };
 
 // Game event events (disasters, VIP, easter eggs)
 export type GameEventEvent =
@@ -119,6 +125,7 @@ export type UIEvent =
   | { type: 'CAMERA_CHANGE'; x: number; y: number; zoom: number }
   | { type: 'CAMERA_MOVED'; position: Position; zoom: number }
   | { type: 'NOTIFICATION_SHOWN'; message: string; severity: 'info' | 'warning' | 'error' }
+  | { type: 'NOTIFICATION'; title: string; message: string; [key: string]: any }
   | { type: 'MENU_OPENED'; menu: string }
   | { type: 'MENU_CLOSED'; menu: string };
 

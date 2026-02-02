@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "skipLibCheck": true
+  },
+  "exclude": ["src/**/*.test.ts", "src/**/__tests__/**", "src/simulation/StarRatingSystem.example.ts"]
+}

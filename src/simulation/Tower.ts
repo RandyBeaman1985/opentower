@@ -1,3 +1,4 @@
+import { generateUUID } from '@core/uuid';
 /**
  * Tower - Main game state container
  *
@@ -72,7 +73,7 @@ function getBuildingCountCategory(type: Building['type']): keyof BuildingCounts 
  */
 export function createTower(name: string = 'New Tower'): Tower {
   const tower: Tower = {
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     name,
     funds: 2000000, // $2,000,000 starting funds (SimTower default)
     population: 0,
@@ -368,27 +369,79 @@ export class TowerManager {
   }
 
   /**
-   * Check and update star rating based on population
+   * Check and update star rating based on population, happiness, and profit
+   * NEW: v0.5.0 - Balanced formula for progression
    */
   private checkStarProgression(): void {
-    const pop = this.tower.population;
-    let newRating: StarRating = 1;
-
-    if (pop >= 15000 && this.tower.hasTowerStatus) {
-      newRating = 6; // TOWER status
-    } else if (pop >= 10000) {
-      newRating = 5;
-    } else if (pop >= 5000) {
-      newRating = 4;
-    } else if (pop >= 1000) {
-      newRating = 3;
-    } else if (pop >= 300) {
-      newRating = 2;
-    }
+    const newRating = this.calculateStarRating();
 
     if (newRating !== this.tower.starRating) {
       const oldRating = this.tower.starRating;
       this.tower.starRating = newRating;
+
+      getEventBus().emitSync({
+        type: 'STAR_CHANGE',
+        oldRating,
+        newRating,
+      });
+    }
+  }
+
+  /**
+   * Calculate star rating based on multiple factors
+   * 
+   * Formula (Balanced):
+   * - Population: Primary factor (50% weight)
+   * - Happiness: Quality factor (30% weight) - % of people with normal stress
+   * - Profit: Sustainability factor (20% weight) - positive cash flow
+   * 
+   * Star Thresholds (MVP - Simplified from original plan):
+   * - 1★: Default (0 population)
+   * - 2★: 100+ population, 50%+ happiness, $10K+ daily income
+   * - 3★: 500+ population, 60%+ happiness, $50K+ daily income
+   * 
+   * (4★ and 5★ reserved for future expansion)
+   */
+  calculateStarRating(happinessPercent: number = 100, dailyIncome: number = 0): StarRating {
+    const pop = this.tower.population;
+
+    // Check for 3-star (top tier for MVP)
+    if (
+      pop >= 500 &&
+      happinessPercent >= 60 &&
+      dailyIncome >= 50000
+    ) {
+      return 3;
+    }
+
+    // Check for 2-star
+    if (
+      pop >= 100 &&
+      happinessPercent >= 50 &&
+      dailyIncome >= 10000
+    ) {
+      return 2;
+    }
+
+    // Default: 1-star
+    return 1;
+  }
+
+  /**
+   * Set happiness and income for star rating calculation
+   * Called by Game every tick
+   */
+  updateStarRatingFactors(happinessPercent: number, dailyIncome: number): void {
+    const newRating = this.calculateStarRating(happinessPercent, dailyIncome);
+
+    if (newRating !== this.tower.starRating) {
+      const oldRating = this.tower.starRating;
+      this.tower.starRating = newRating;
+
+      console.log(`⭐ STAR RATING INCREASED: ${oldRating}★ → ${newRating}★`);
+      console.log(`  Population: ${this.tower.population}`);
+      console.log(`  Happiness: ${happinessPercent.toFixed(1)}%`);
+      console.log(`  Daily Income: $${dailyIncome.toLocaleString()}`);
 
       getEventBus().emitSync({
         type: 'STAR_CHANGE',
