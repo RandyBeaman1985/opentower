@@ -10,6 +10,8 @@
  * Positioned at the bottom of the screen like SimTower.
  */
 
+import { getMusicPlayer } from '../audio/MusicPlayer';
+
 export interface Notification {
   id: string;
   message: string;
@@ -230,6 +232,10 @@ export class BottomBar {
       { action: 'help', label: '❓', icon: '', tooltip: 'Help (F1)' },
     ];
     
+    // Add music toggle button (special case - not a QuickAction)
+    const musicButton = this.createMusicToggleButton();
+    area.appendChild(musicButton);
+    
     actions.forEach(({ action, label, tooltip }) => {
       const button = this.createActionButton(action, label, tooltip);
       area.appendChild(button);
@@ -285,6 +291,66 @@ export class BottomBar {
       if (this.actionCallback) {
         this.actionCallback(action);
       }
+    };
+    
+    return button;
+  }
+
+  private createMusicToggleButton(): HTMLButtonElement {
+    const musicPlayer = getMusicPlayer();
+    const button = document.createElement('button');
+    button.textContent = musicPlayer.isEnabled() ? '🎵' : '🔇';
+    button.title = 'Toggle background music (M)';
+    button.style.cssText = `
+      width: 40px;
+      height: 40px;
+      background: ${musicPlayer.isEnabled() ? '#4CAF50' : '#333'};
+      color: white;
+      border: 2px solid ${musicPlayer.isEnabled() ? '#66BB6A' : '#555'};
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 18px;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    `;
+    
+    button.onmouseenter = () => {
+      button.style.borderColor = '#666';
+      button.style.transform = 'translateY(-2px)';
+    };
+    
+    button.onmouseleave = () => {
+      button.style.borderColor = musicPlayer.isEnabled() ? '#66BB6A' : '#555';
+      button.style.transform = 'translateY(0)';
+    };
+    
+    button.onmousedown = () => {
+      button.style.transform = 'translateY(1px)';
+    };
+    
+    button.onmouseup = () => {
+      button.style.transform = 'translateY(-2px)';
+    };
+    
+    button.onclick = () => {
+      const isEnabled = musicPlayer.toggle();
+      
+      // Update button appearance
+      button.textContent = isEnabled ? '🎵' : '🔇';
+      button.style.background = isEnabled ? '#4CAF50' : '#333';
+      button.style.borderColor = isEnabled ? '#66BB6A' : '#555';
+      
+      // Visual feedback
+      button.style.animation = 'pulse-glow 0.3s ease';
+      setTimeout(() => {
+        button.style.animation = '';
+      }, 300);
+      
+      // Notify user
+      this.notify(
+        isEnabled ? 'Background music enabled 🎵' : 'Background music disabled 🔇',
+        'info'
+      );
     };
     
     return button;

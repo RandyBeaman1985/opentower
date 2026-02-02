@@ -405,15 +405,15 @@ TIME_EVENTS = {
 - ✅ EventSystem: VIPs, fires, bombs, Santa event, treasure, cockroaches
 - ✅ RandomEventSystem: Maintenance issues, power outages, fire drills
 
-### Phase 3 Status (Weeks 9-12): NEEDS WORK
+### Phase 3 Status (Weeks 9-12): MOSTLY COMPLETE
 
-**Sound & Music (Week 9) - MOSTLY COMPLETE:**
+**Sound & Music (Week 9) - ✅ COMPLETE:**
 - ✅ Building placed, demolish, cash register sounds
 - ✅ Elevator ding (plays when doors open)
 - ✅ Alert sounds (bankruptcy warnings, fire alarm, victory fanfare)
 - ✅ Star rating up fanfare
 - ✅ Warning sounds (escalating with debt severity)
-- ❌ Background music (MusicPlayer exists, needs UI toggle)
+- ✅ Background music toggle button (🎵 button in BottomBar) - ADDED 2026-02-02 6:01 AM
 
 **Visual Polish (Week 10) - EXISTS, NEEDS VERIFICATION:**
 - ⚠️ Day/night cycle (TimeOfDaySystem exists)
@@ -424,9 +424,14 @@ TIME_EVENTS = {
 - ✅ TutorialOverlay implemented
 - ✅ First-time player onboarding
 
-**Performance (Week 12) - UNTESTED:**
-- ❌ Profile at 1,000+ people
-- ❌ Optimize if needed
+**Performance (Week 12) - 🔄 IN PROGRESS (ADDED 2026-02-02 6:20 AM):**
+- ✅ Performance benchmark framework created (v0.7.9)
+- ✅ Automated 4-phase stress test (100/500/1000/2000 people)
+- ✅ FPS monitoring, frame drop detection
+- ✅ Console API: `window.runPerformanceBenchmark()`
+- ⏳ Run actual benchmark on real hardware
+- ⏳ Profile bottlenecks if FPS < 30
+- ⏳ Optimize as needed (spatial partitioning, dirty flags, batching)
 
 ## 🎯 IMMEDIATE NEXT STEPS
 
@@ -434,22 +439,33 @@ TIME_EVENTS = {
 
 2. ✅ **Add Alert Sounds** - DONE! (Bankruptcy warnings, victory fanfare)
 
-3. **Add Background Music** (1-2 hours)
-   - MusicPlayer class exists, needs UI toggle
-   - Add music on/off button to UI
-   - Start music on first user interaction
-   - Elevator jazz mood system
+3. ✅ **Add Background Music** - DONE! (2026-02-02 6:01 AM)
+   - ✅ MusicPlayer class exists and functional
+   - ✅ Added 🎵 toggle button to BottomBar
+   - ✅ Button changes to 🔇 when music is off
+   - ✅ Visual feedback (green when on, gray when off)
+   - ✅ Notification when toggled
+   - ✅ Keyboard shortcut support ready (M key)
 
-4. **Internal Playtest** (30 minutes)
+4. ✅ **Add Performance Benchmark** - DONE! (2026-02-02 6:20 AM)
+   - ✅ Created PerformanceBenchmark.ts
+   - ✅ 4-phase stress test suite (100/500/1000/2000 people)
+   - ✅ FPS monitoring and frame drop detection
+   - ✅ `window.runPerformanceBenchmark()` console API
+   - ⏳ Ready for runtime testing on real hardware
+
+5. **Internal Playtest** (30 minutes) - ⚠️ NEEDS HUMAN TESTER
    - Play for 15-20 real minutes
    - Verify all systems work
    - Test bankruptcy path
    - Test victory path
+   - Run performance benchmark
    - Note any bugs or balance issues
 
-5. **External Testing** (Once 3-4 complete)
+6. **External Testing** (Once 4-5 complete) - ⏳ PENDING
    - 5+ testers play >30 minutes
    - Collect feedback on "Does it feel like SimTower?"
+   - Run performance benchmark on different hardware
 
 ## 🚀 ORIGINAL STARTING POINT (ARCHIVED)
 

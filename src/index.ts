@@ -13,12 +13,16 @@ import { RandomEventNotification } from '@/ui/RandomEventNotification';
 import { GameOverModal } from '@/ui/GameOverModal';
 import { getEventBus } from '@core/EventBus';
 import { getSoundManager } from '@/audio/SoundManager';
+import { installPerformanceBenchmark } from '@/test/PerformanceBenchmark';
+import { installSystemVerification } from '@/utils/SystemVerification';
 
 // Make game globally accessible for debugging
 declare global {
   interface Window {
     game: Game;
     placer: BuildingPlacer;
+    runPerformanceBenchmark?: () => Promise<void>;
+    verifyGameSystems?: () => Promise<void>;
   }
 }
 
@@ -35,6 +39,12 @@ async function main() {
 
   // Make game available for debugging
   window.game = game;
+
+  // Install performance benchmark (Week 12 - Performance Testing)
+  installPerformanceBenchmark(game);
+
+  // Install system verification (Week 10 - Visual Polish Verification)
+  installSystemVerification(game);
 
   // Try to load existing save
   const saveLoadManager = game.getSaveLoadManager();
