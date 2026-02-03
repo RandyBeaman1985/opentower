@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenTower Sprite Preview</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        label {
+            font-size: 12px;
+            color: #00ff00;
+        }
+
+        input[type="file"],
+        input[type="text"],
+        select {
+            background: #2a2a2a;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 5px 10px;
+            font-family: 'Courier New', monospace;
+        }
+
+        button {
+            background: #2a2a2a;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #00ff00;
+            color: #1a1a1a;
+        }
+
+        .preview-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .sprite-card {
+            background: #2a2a2a;
+            border: 1px solid #00ff00;
+            padding: 20px;
+            border-radius: 5px;
+        }
+
+        .sprite-name {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #00ff00;
+            font-weight: bold;
+        }
+
+        .sprite-canvas {
+            width: 100%;
+            height: auto;
+            border: 1px solid #444;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background: 
+                linear-gradient(45deg, #333 25%, transparent 25%),
+                linear-gradient(-45deg, #333 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #333 75%),
+                linear-gradient(-45deg, transparent 75%, #333 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        .sprite-info {
+            margin-top: 10px;
+            font-size: 11px;
+            color: #888;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+        }
+
+        .zoom-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .zoom-controls button {
+            padding: 5px 10px;
+            font-size: 11px;
+        }
+
+        .asset-browser {
+            background: #2a2a2a;
+            border: 1px solid #00ff00;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 5px;
+        }
+
+        .asset-list {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .asset-item {
+            padding: 8px;
+            background: #1a1a1a;
+            border: 1px solid #444;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .asset-item:hover {
+            background: #333;
+            border-color: #00ff00;
+        }
+
+        .asset-item.loaded {
+            border-color: #00ff00;
+        }
+
+        .stats {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 20px;
+        }
+
+        .stat {
+            font-size: 14px;
+        }
+
+        .stat span {
+            color: #00ff00;
+            font-weight: bold;
+        }
+
+        .error {
+            color: #ff0000;
+            padding: 10px;
+            background: #2a2a2a;
+            border: 1px solid #ff0000;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 OpenTower Sprite Preview Tool</h1>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>Load Sprite File:</label>
+            <input type="file" id="fileInput" accept="image/png,image/gif" multiple>
+        </div>
+
+        <div class="control-group">
+            <label>Or enter URL:</label>
+            <input type="text" id="urlInput" placeholder="https://example.com/sprite.png" style="width: 300px;">
+            <button onclick="loadFromUrl()">Load URL</button>
+        </div>
+
+        <div class="control-group">
+            <label>Zoom:</label>
+            <select id="globalZoom" onchange="updateGlobalZoom()">
+                <option value="1">1x</option>
+                <option value="2" selected>2x</option>
+                <option value="4">4x</option>
+                <option value="8">8x</option>
+                <option value="16">16x</option>
+            </select>
+        </div>
+
+        <button onclick="clearAll()">Clear All</button>
+        <button onclick="loadAssetDirectory()">Browse Assets</button>
+    </div>
+
+    <div class="stats">
+        <div class="stat">Loaded: <span id="loadedCount">0</span></div>
+        <div class="stat">Total Size: <span id="totalSize">0 KB</span></div>
+    </div>
+
+    <div id="errorContainer"></div>
+
+    <div class="asset-browser" id="assetBrowser" style="display: none;">
+        <h3>Available Assets</h3>
+        <div class="asset-list" id="assetList"></div>
+    </div>
+
+    <div class="preview-container" id="previewContainer"></div>
+
+    <script>
+        let loadedSprites = [];
+        let globalZoom = 2;
+
+        // File input handler
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            const files = e.target.files;
+            for (let file of files) {
+                loadSpriteFile(file);
+            }
+        });
+
+        // Load sprite from file
+        function loadSpriteFile(file) {
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    addSpriteToPreview(file.name, img, file.size);
+                };
+                img.onerror = () => {
+                    showError(`Failed to load image: ${file.name}`);
+                };
+                img.src = e.target.result;
+            };
+            
+            reader.readAsDataURL(file);
+        }
+
+        // Load sprite from URL
+        function loadFromUrl() {
+            const url = document.getElementById('urlInput').value.trim();
+            if (!url) {
+                showError('Please enter a URL');
+                return;
+            }
+
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            
+            img.onload = () => {
+                const filename = url.split('/').pop() || 'url-sprite';
+                addSpriteToPreview(filename, img, 0);
+                document.getElementById('urlInput').value = '';
+            };
+            
+            img.onerror = () => {
+                showError(`Failed to load image from URL: ${url}`);
+            };
+            
+            img.src = url;
+        }
+
+        // Add sprite to preview grid
+        function addSpriteToPreview(name, img, size) {
+            const container = document.getElementById('previewContainer');
+            
+            const card = document.createElement('div');
+            card.className = 'sprite-card';
+            
+            const nameDiv = document.createElement('div');
+            nameDiv.className = 'sprite-name';
+            nameDiv.textContent = name;
+            
+            const canvas = document.createElement('canvas');
+            canvas.className = 'sprite-canvas';
+            canvas.width = img.width;
+            canvas.height = img.height;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(img, 0, 0);
+            
+            const info = document.createElement('div');
+            info.className = 'sprite-info';
+            info.innerHTML = `
+                <div class="info-row">
+                    <span>Dimensions:</span>
+                    <span>${img.width} × ${img.height}px</span>
+                </div>
+                <div class="info-row">
+                    <span>Size:</span>
+                    <span>${(size / 1024).toFixed(2)} KB</span>
+                </div>
+                <div class="info-row">
+                    <span>Zoom:</span>
+                    <span id="zoom-${loadedSprites.length}">${globalZoom}x</span>
+                </div>
+            `;
+            
+            const zoomControls = document.createElement('div');
+            zoomControls.className = 'zoom-controls';
+            zoomControls.innerHTML = `
+                <button onclick="zoomSprite(${loadedSprites.length}, 1)">1x</button>
+                <button onclick="zoomSprite(${loadedSprites.length}, 2)">2x</button>
+                <button onclick="zoomSprite(${loadedSprites.length}, 4)">4x</button>
+                <button onclick="zoomSprite(${loadedSprites.length}, 8)">8x</button>
+                <button onclick="removeSprite(${loadedSprites.length})">Remove</button>
+            `;
+            
+            card.appendChild(nameDiv);
+            card.appendChild(canvas);
+            card.appendChild(info);
+            card.appendChild(zoomControls);
+            
+            container.appendChild(card);
+            
+            loadedSprites.push({
+                name,
+                img,
+                size,
+                canvas,
+                card
+            });
+            
+            updateStats();
+            updateCanvasSize(canvas, globalZoom);
+        }
+
+        // Zoom specific sprite
+        function zoomSprite(index, zoom) {
+            const sprite = loadedSprites[index];
+            if (sprite) {
+                updateCanvasSize(sprite.canvas, zoom);
+                document.getElementById(`zoom-${index}`).textContent = `${zoom}x`;
+            }
+        }
+
+        // Update canvas size based on zoom
+        function updateCanvasSize(canvas, zoom) {
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            img.src = canvas.toDataURL();
+            
+            img.onload = () => {
+                canvas.style.width = (canvas.width * zoom) + 'px';
+                canvas.style.height = (canvas.height * zoom) + 'px';
+            };
+        }
+
+        // Update global zoom
+        function updateGlobalZoom() {
+            globalZoom = parseInt(document.getElementById('globalZoom').value);
+            loadedSprites.forEach((sprite, index) => {
+                updateCanvasSize(sprite.canvas, globalZoom);
+                document.getElementById(`zoom-${index}`).textContent = `${globalZoom}x`;
+            });
+        }
+
+        // Remove sprite
+        function removeSprite(index) {
+            const sprite = loadedSprites[index];
+            if (sprite) {
+                sprite.card.remove();
+                loadedSprites.splice(index, 1);
+                updateStats();
+            }
+        }
+
+        // Clear all sprites
+        function clearAll() {
+            document.getElementById('previewContainer').innerHTML = '';
+            loadedSprites = [];
+            updateStats();
+        }
+
+        // Update stats display
+        function updateStats() {
+            document.getElementById('loadedCount').textContent = loadedSprites.length;
+            const totalSize = loadedSprites.reduce((sum, s) => sum + s.size, 0);
+            document.getElementById('totalSize').textContent = (totalSize / 1024).toFixed(2) + ' KB';
+        }
+
+        // Show error message
+        function showError(message) {
+            const errorContainer = document.getElementById('errorContainer');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = message;
+            errorContainer.appendChild(errorDiv);
+            
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 5000);
+        }
+
+        // Browse asset directory (requires server running)
+        async function loadAssetDirectory() {
+            const browser = document.getElementById('assetBrowser');
+            const assetList = document.getElementById('assetList');
+            
+            if (browser.style.display === 'none') {
+                browser.style.display = 'block';
+                
+                // Try to load assets from server
+                try {
+                    // This would need a backend endpoint to list files
+                    // For now, show manual list
+                    assetList.innerHTML = `
+                        <div class="asset-item">buildings/office-empty.png</div>
+                        <div class="asset-item">buildings/office-half.png</div>
+                        <div class="asset-item">buildings/office-full.png</div>
+                        <div class="asset-item">buildings/lobby-1star.png</div>
+                        <div class="asset-item">buildings/fastfood-empty.png</div>
+                        <div class="asset-item">people/person-black-left-idle.png</div>
+                        <div class="asset-item">elevators/elevator-shaft-standard.png</div>
+                        <p style="color: #888; margin-top: 10px;">
+                            Note: To load assets, drag and drop files or use the file picker above.
+                        </p>
+                    `;
+                } catch (e) {
+                    showError('Could not load asset directory');
+                }
+            } else {
+                browser.style.display = 'none';
+            }
+        }
+
+        // Initialize
+        console.log('OpenTower Sprite Preview Tool loaded');
+        console.log('Drop sprite files or use the file picker to preview them');
+    </script>
+</body>
+</html>
