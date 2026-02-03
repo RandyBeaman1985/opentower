@@ -7,10 +7,38 @@
  * - Financial milestones
  * - Critical warnings
  * 
+ * Design: Slide-in from right with color-coded types
+ * 
  * @module ui/NotificationSystem
  */
 
 import { getSoundManager } from '@/audio/SoundManager';
+
+/**
+ * Design tokens for notifications
+ */
+const NT_TOKENS = {
+  // Type colors
+  success: { bg: '#059669', border: '#34D399', icon: '✓' },
+  info: { bg: '#2563EB', border: '#60A5FA', icon: 'ℹ' },
+  warning: { bg: '#D97706', border: '#FBBF24', icon: '⚠' },
+  critical: { bg: '#DC2626', border: '#F87171', icon: '🚨' },
+  star: { bg: 'linear-gradient(135deg, #F59E0B, #EF4444)', border: '#FCD34D', icon: '⭐' },
+  
+  // Layout
+  containerRight: '20px',
+  containerTop: '80px',
+  maxWidth: '420px',
+  gap: '12px',
+  
+  // Animation
+  duration: '300ms',
+  easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+  
+  // Fonts
+  fontBody: "'Inter', -apple-system, system-ui, sans-serif",
+  fontMono: "'JetBrains Mono', monospace",
+};
 
 export type NotificationType = 'success' | 'info' | 'warning' | 'critical' | 'star';
 
@@ -29,19 +57,21 @@ export class NotificationSystem {
   private nextId = 1;
 
   constructor() {
+    this.ensureAnimationsExist(); // Inject styles early
+    
     this.container = document.createElement('div');
     this.container.id = 'notification-container';
     this.container.style.cssText = `
       position: fixed;
-      top: 80px;
-      left: 50%;
-      transform: translateX(-50%);
+      top: ${NT_TOKENS.containerTop};
+      right: ${NT_TOKENS.containerRight};
       z-index: 10000;
       pointer-events: none;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      align-items: center;
+      gap: ${NT_TOKENS.gap};
+      align-items: flex-end;
+      max-width: ${NT_TOKENS.maxWidth};
     `;
     document.body.appendChild(this.container);
   }
@@ -156,68 +186,120 @@ export class NotificationSystem {
    * Render a notification element
    */
   private render(notification: Notification): void {
+    const typeStyle = NT_TOKENS[notification.type];
+    const isGradient = typeStyle.bg.includes('gradient');
+    
     const element = document.createElement('div');
     element.id = notification.id;
+    element.className = 'ot-notification';
     element.style.cssText = `
-      background: ${this.getBackgroundColor(notification.type)};
+      ${isGradient ? `background: ${typeStyle.bg};` : `background: ${typeStyle.bg};`}
       color: white;
-      padding: 20px 30px;
-      border-radius: 12px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-      font-family: 'Arial', sans-serif;
-      max-width: 500px;
+      padding: 16px 20px;
+      padding-right: 40px;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255,255,255,0.1);
+      font-family: ${NT_TOKENS.fontBody};
+      max-width: 100%;
       pointer-events: all;
-      animation: notificationSlideIn 0.3s ease-out;
-      text-align: center;
-      border: 3px solid ${this.getBorderColor(notification.type)};
+      animation: notificationSlideIn ${NT_TOKENS.duration} ${NT_TOKENS.easing};
+      text-align: left;
+      border-left: 4px solid ${typeStyle.border};
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      position: relative;
     `;
+    
+    // Hover effect
+    element.onmouseenter = () => {
+      element.style.transform = 'translateX(-4px)';
+      element.style.boxShadow = '0 6px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255,255,255,0.15)';
+    };
+    element.onmouseleave = () => {
+      element.style.transform = 'translateX(0)';
+      element.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255,255,255,0.1)';
+    };
+    
+    // Click to dismiss
+    element.onclick = () => this.dismiss(notification.id);
 
+    // Header with icon
+    const header = document.createElement('div');
+    header.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    `;
+    
+    // Type icon
+    const icon = document.createElement('span');
+    icon.style.cssText = `
+      font-size: 16px;
+      ${notification.type === 'star' ? 'animation: starPulse 1s ease-in-out infinite;' : ''}
+    `;
+    icon.textContent = typeStyle.icon;
+    
     // Title
-    const title = document.createElement('div');
+    const title = document.createElement('span');
     title.style.cssText = `
-      font-size: ${notification.type === 'star' ? '24px' : '18px'};
-      font-weight: bold;
-      margin-bottom: 10px;
-      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      font-size: ${notification.type === 'star' ? '18px' : '15px'};
+      font-weight: 600;
       ${notification.type === 'star' ? 'animation: starPulse 1s ease-in-out infinite;' : ''}
     `;
     title.textContent = notification.title;
+    
+    header.appendChild(icon);
+    header.appendChild(title);
 
     // Message
     const message = document.createElement('div');
     message.style.cssText = `
-      font-size: 14px;
-      line-height: 1.6;
+      font-size: 13px;
+      line-height: 1.5;
       white-space: pre-line;
-      opacity: 0.95;
+      opacity: 0.9;
     `;
     message.textContent = notification.message;
 
-    element.appendChild(title);
+    element.appendChild(header);
     element.appendChild(message);
 
     // Close button
-    if (notification.type !== 'star') { // Star notifications auto-close
-      const closeButton = document.createElement('button');
-      closeButton.textContent = '✕';
-      closeButton.style.cssText = `
-        position: absolute;
-        top: 8px;
-        right: 12px;
-        background: transparent;
-        border: none;
-        color: white;
-        font-size: 20px;
-        cursor: pointer;
-        opacity: 0.7;
-        transition: opacity 0.2s;
-      `;
-      closeButton.onmouseover = () => closeButton.style.opacity = '1';
-      closeButton.onmouseout = () => closeButton.style.opacity = '0.7';
-      closeButton.onclick = () => this.dismiss(notification.id);
-      element.style.position = 'relative';
-      element.appendChild(closeButton);
-    }
+    const closeButton = document.createElement('button');
+    closeButton.className = 'ot-close-btn';
+    closeButton.textContent = '✕';
+    closeButton.style.cssText = `
+      position: absolute;
+      top: 50%;
+      right: 12px;
+      transform: translateY(-50%);
+      background: rgba(0,0,0,0.2);
+      border: none;
+      color: white;
+      font-size: 14px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s, background 0.2s;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+    closeButton.onmouseenter = () => {
+      closeButton.style.opacity = '1';
+      closeButton.style.background = 'rgba(0,0,0,0.4)';
+    };
+    closeButton.onmouseleave = () => {
+      closeButton.style.background = 'rgba(0,0,0,0.2)';
+    };
+    closeButton.onclick = (e) => {
+      e.stopPropagation();
+      this.dismiss(notification.id);
+    };
+    element.appendChild(closeButton);
 
     this.container.appendChild(element);
 
@@ -295,22 +377,22 @@ export class NotificationSystem {
     style.textContent = `
       @keyframes notificationSlideIn {
         from {
-          transform: translateY(-100px);
+          transform: translateX(100%);
           opacity: 0;
         }
         to {
-          transform: translateY(0);
+          transform: translateX(0);
           opacity: 1;
         }
       }
 
       @keyframes notificationSlideOut {
         from {
-          transform: translateY(0);
+          transform: translateX(0);
           opacity: 1;
         }
         to {
-          transform: translateY(-100px);
+          transform: translateX(100%);
           opacity: 0;
         }
       }
@@ -318,10 +400,16 @@ export class NotificationSystem {
       @keyframes starPulse {
         0%, 100% {
           transform: scale(1);
+          filter: brightness(1);
         }
         50% {
-          transform: scale(1.05);
+          transform: scale(1.02);
+          filter: brightness(1.1);
         }
+      }
+      
+      .ot-notification:hover .ot-close-btn {
+        opacity: 1;
       }
     `;
     document.head.appendChild(style);
