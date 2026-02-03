@@ -17,6 +17,52 @@
 
 import { BuildingType } from '@/interfaces';
 import { Texture, Sprite as PIXISprite } from 'pixi.js';
+import { OCRAM_SPRITES } from './OcramSpriteMap';
+
+/**
+ * Get the Ocram sprite path for a building type and state
+ */
+function getOcramSpritePath(buildingType: BuildingType, state: string): string | null {
+  const config = OCRAM_SPRITES[buildingType];
+  if (!config || !config.variants || config.variants.length === 0) {
+    return null;
+  }
+  
+  // Map state to variant index
+  let variantIndex = 0;
+  
+  // For offices: empty = 0, occupied states = 1+
+  if (buildingType === 'office') {
+    if (state === 'empty') variantIndex = 0;
+    else if (state === 'half') variantIndex = Math.floor(config.variants.length / 2);
+    else if (state === 'full') variantIndex = config.variants.length - 1;
+  }
+  // For hotels: sleeping = night variants
+  else if (buildingType.startsWith('hotel')) {
+    if (state === 'sleeping') {
+      // Find a night variant
+      variantIndex = config.variants.findIndex(v => v.includes('night')) || 0;
+    } else if (state === 'occupied') {
+      // Find a day variant
+      variantIndex = config.variants.findIndex(v => v.includes('day')) || 0;
+    }
+  }
+  // For condos: forsale = empty, occupied = occupied
+  else if (buildingType === 'condo') {
+    if (state === 'forsale') {
+      variantIndex = config.variants.findIndex(v => v.includes('empty')) || 0;
+    } else {
+      variantIndex = config.variants.findIndex(v => v.includes('occupied')) || 0;
+    }
+  }
+  // Default: use first variant
+  
+  const variantName = config.variants[variantIndex];
+  
+  // Build the full path based on the sprite location
+  // Most are in Rooms/Default/
+  return `/sprites/ocram/Rooms/Default/${variantName}.png`;
+}
 
 export interface SpriteConfig {
   path: string;
@@ -195,6 +241,8 @@ const spriteCache = new Map<string, Texture>();
 /**
  * Load a sprite texture from the asset path
  * 
+ * Now tries Ocram sprites first, then falls back to generated assets.
+ * 
  * @param buildingType - Type of building
  * @param state - State variant (e.g., 'empty', 'half', 'full')
  * @returns Texture object
@@ -216,6 +264,19 @@ export async function loadBuildingSprite(
   // Return cached texture if available
   if (spriteCache.has(cacheKey)) {
     return spriteCache.get(cacheKey)!;
+  }
+  
+  // === TRY OCRAM SPRITES FIRST ===
+  const ocramPath = getOcramSpritePath(buildingType, actualState);
+  if (ocramPath) {
+    try {
+      const texture = await Texture.from(ocramPath);
+      spriteCache.set(cacheKey, texture);
+      console.log(`✨ Loaded Ocram sprite: ${ocramPath}`);
+      return texture;
+    } catch (e) {
+      // Ocram sprite not found, continue to fallback
+    }
   }
   
   // Build asset path

@@ -194,8 +194,9 @@ const SOUND_MAP = {
 - [x] Downloaded 28 original audio files
 - [x] Acquired 287 sprite PNG files from OcramTower
 - [x] Created this rebuild plan
-- [ ] Started Phase 1.1 (Camera)
-- [ ] Started Phase 1.2 (Building placement)
+- [x] **Phase 1.1 COMPLETE**: Camera controls (WASD, wheel zoom, middle-drag, edge-pan)
+- [x] Tutorial system with interactive onboarding
+- [x] Build passing on Vercel
 
 ---
 
