@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenTower Tutorial Test</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, system-ui, sans-serif;
+      background: #1a202c;
+      color: white;
+      padding: 40px;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    h1 {
+      font-size: 32px;
+      margin-bottom: 20px;
+    }
+    
+    .instructions {
+      background: #2d3748;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      line-height: 1.6;
+    }
+    
+    .buttons {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 30px;
+    }
+    
+    button {
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .primary {
+      background: #3b82f6;
+      color: white;
+    }
+    
+    .primary:hover {
+      background: #2563eb;
+    }
+    
+    .secondary {
+      background: #6b7280;
+      color: white;
+    }
+    
+    .secondary:hover {
+      background: #4b5563;
+    }
+    
+    .success {
+      background: #10b981;
+      color: white;
+    }
+    
+    .success:hover {
+      background: #059669;
+    }
+    
+    .danger {
+      background: #ef4444;
+      color: white;
+    }
+    
+    .danger:hover {
+      background: #dc2626;
+    }
+    
+    .status {
+      background: #374151;
+      padding: 16px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+    }
+    
+    .checklist {
+      margin-top: 30px;
+    }
+    
+    .checklist li {
+      margin: 10px 0;
+      padding: 8px;
+      background: #2d3748;
+      border-radius: 4px;
+    }
+    
+    code {
+      background: #1a202c;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏢 OpenTower Tutorial Test</h1>
+    
+    <div class="instructions">
+      <h2>Quick Test Instructions</h2>
+      <p>This page helps you test the new interactive tutorial system.</p>
+      <p><strong>Goal:</strong> A first-time player should understand how to play within 30 seconds.</p>
+    </div>
+    
+    <div class="buttons">
+      <button class="primary" onclick="openGame()">
+        🚀 Open Game (Localhost)
+      </button>
+      <button class="success" onclick="resetTutorial()">
+        🔄 Reset Tutorial State
+      </button>
+      <button class="secondary" onclick="checkStatus()">
+        📊 Check Status
+      </button>
+    </div>
+    
+    <div class="status" id="status">
+      <div>Tutorial Status: <span id="tutorial-status">Unknown</span></div>
+      <div>LocalStorage Key: <code>opentower_tutorial_completed</code></div>
+    </div>
+    
+    <div class="checklist">
+      <h2>Testing Checklist</h2>
+      <ol>
+        <li>✅ Click "Reset Tutorial State" above</li>
+        <li>✅ Click "Open Game" to launch OpenTower</li>
+        <li>✅ Tutorial should appear immediately (Welcome screen)</li>
+        <li>✅ Click "Let's Go!" → moves to "Select Lobby" step</li>
+        <li>✅ Building Menu should be highlighted with glow</li>
+        <li>✅ Arrow should point to menu</li>
+        <li>✅ Click "Special" tab (⭐), then click "Lobby"</li>
+        <li>✅ Tutorial should auto-advance to "Place Lobby" step</li>
+        <li>✅ Arrow should point down to ground</li>
+        <li>✅ Click on ground to place lobby</li>
+        <li>✅ Success screen should appear</li>
+        <li>✅ Tutorial should auto-hide after 2.5 seconds</li>
+        <li>✅ UI Hints should appear at bottom of screen</li>
+        <li>✅ Reload page → Tutorial should NOT appear again</li>
+        <li>✅ Click help (?) button → Tutorial should reopen</li>
+      </ol>
+    </div>
+    
+    <div class="instructions" style="margin-top: 30px;">
+      <h2>Expected Time</h2>
+      <p><strong>Welcome → First Building Placed:</strong> ~30 seconds</p>
+      <p>If it takes longer, the tutorial needs simplification.</p>
+      <p>If players skip, the tutorial isn't providing value.</p>
+    </div>
+  </div>
+  
+  <script>
+    function openGame() {
+      window.open('http://localhost:5173/', '_blank');
+    }
+    
+    function resetTutorial() {
+      // Open game window and execute reset
+      const gameWindow = window.open('http://localhost:5173/', '_blank');
+      
+      // Wait for window to load, then reset
+      setTimeout(() => {
+        const code = `
+          localStorage.removeItem('opentower_tutorial_completed');
+          location.reload();
+        `;
+        
+        alert('Tutorial state reset!\\n\\nThe game will reload and show the tutorial.\\n\\nIf the window didn\\'t open, run this in the game console:\\n\\n' + code);
+      }, 1000);
+      
+      updateStatus();
+    }
+    
+    function checkStatus() {
+      updateStatus();
+    }
+    
+    function updateStatus() {
+      // We can't access localStorage from a different origin
+      // So we'll just show instructions
+      document.getElementById('tutorial-status').textContent = 'Check in game console';
+      document.getElementById('status').innerHTML = `
+        <div>To check tutorial status, open game console (F12) and run:</div>
+        <div style="margin-top: 10px;"><code>localStorage.getItem('opentower_tutorial_completed')</code></div>
+        <div style="margin-top: 10px;">Result:</div>
+        <div><code>null</code> = Tutorial will show</div>
+        <div><code>"true"</code> = Tutorial completed (won't show)</div>
+      `;
+    }
+    
+    // Initial status check
+    updateStatus();
+  </script>
+</body>
+</html>

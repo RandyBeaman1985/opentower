@@ -199,60 +199,102 @@ export class BuildingSprites {
   }
 
   /**
-   * LOBBY - Grand entrance with glass front
+   * LOBBY - Grand entrance with reception desk and welcoming interior
    */
   private static renderLobby(g: PIXI.Container, width: number, height: number, options: BuildingRenderOptions, variant: number): void {
-    const graphics = new PIXI.Graphics();
+    const graphics = createPixelGraphics();
 
     // Marble walls
     const wallColor = variant === 0 ? 0xE8E0D5 : variant === 1 ? 0xF5F5DC : 0xFAF0E6;
-    graphics.rect(0, 0, width, height);
-    graphics.fill(wallColor);
+    pixelRect(graphics, 0, 0, width, height, wallColor);
 
-    // Glass front (bottom 60%)
-    const glassHeight = height * 0.6;
-    const glassColor = options.showLights ? 0xFFE4B5 : 0x87CEEB;
-    graphics.rect(0, height - glassHeight, width, glassHeight);
-    graphics.fill({ color: glassColor, alpha: 0.7 });
+    // Marble floor (darker)
+    const floorColor = darkenColor(wallColor, 0.15);
+    pixelRect(graphics, 0, height - 4, width, 4, floorColor);
 
-    // Glass panels (vertical dividers)
-    graphics.setStrokeStyle({ width: 2, color: 0x8B8B8B });
-    for (let x = width / 4; x < width; x += width / 4) {
-      graphics.moveTo(x, height - glassHeight);
-      graphics.lineTo(x, height);
+    // Reception desk (center-left)
+    const deskWidth = 16;
+    const deskHeight = 8;
+    const deskX = 8;
+    const deskY = height - deskHeight - 6;
+    
+    pixelRect(graphics, deskX, deskY, deskWidth, deskHeight, 0x8B4513);
+    pixelRect(graphics, deskX, deskY, deskWidth, 2, 0x654321); // Desk top
+    
+    // Receptionist
+    if (Math.random() > 0.3) {
+      pixelPerson(graphics, deskX + 6, deskY - 8, 0x2F4F4F, 'right');
     }
-    graphics.stroke();
+    
+    // Computer on desk
+    if (options.showLights) {
+      pixelRect(graphics, deskX + 10, deskY - 4, 3, 4, 0x87CEEB); // Monitor
+    }
 
-    // Entrance doors (center, double doors)
-    const doorWidth = 16;
-    const doorHeight = 24;
-    const doorX = width / 2 - doorWidth;
+    // Seating area (center-right)
+    const seatX = width / 2 + 4;
+    pixelRect(graphics, seatX, height - 10, 8, 4, 0x8B0000); // Sofa
+    pixelRect(graphics, seatX + 10, height - 10, 8, 4, 0x8B0000); // Another sofa
+    
+    // Person waiting
+    if (Math.random() > 0.5) {
+      pixelPerson(graphics, seatX + 2, height - 14, 0x4A4A4A, 'right');
+    }
+    
+    // Coffee table
+    pixelFurniture(graphics, seatX + 3, height - 8, 'table', 0x654321);
+
+    // Decorative plants
+    pixelFurniture(graphics, 2, height - 10, 'plant');
+    pixelFurniture(graphics, width - 6, height - 10, 'plant');
+
+    // Glass front (lower portion, visible from outside)
+    const glassHeight = snapToPixel(height * 0.5);
+    const glassY = height - glassHeight;
+    const glassColor = options.showLights ? 0xFFE4B5 : 0x87CEEB;
+    
+    // Glass panels
+    for (let x = 0; x < width; x += snapToPixel(width / 3)) {
+      pixelRect(graphics, x, glassY, snapToPixel(width / 3) - 2, glassHeight, glassColor);
+      
+      // Glass frame
+      graphics.setStrokeStyle({ width: 1, color: 0x8B8B8B });
+      graphics.rect(x, glassY, snapToPixel(width / 3) - 2, glassHeight);
+      graphics.stroke();
+    }
+
+    // Entrance doors (center, double doors with gold handles)
+    const doorWidth = 12;
+    const doorHeight = 20;
+    const doorX = width / 2 - doorWidth - 1;
     const doorY = height - doorHeight - 4;
     
     // Left door
-    graphics.rect(doorX, doorY, doorWidth - 2, doorHeight);
-    graphics.fill({ color: 0x8B4513, alpha: 0.8 });
+    pixelRect(graphics, doorX, doorY, doorWidth, doorHeight, 0x8B4513);
+    pixelRect(graphics, doorX + 2, doorY + 2, doorWidth - 4, doorHeight - 4, 0xA0522D); // Glass panel
     
     // Right door
-    graphics.rect(doorX + doorWidth, doorY, doorWidth - 2, doorHeight);
-    graphics.fill({ color: 0x8B4513, alpha: 0.8 });
+    pixelRect(graphics, doorX + doorWidth + 2, doorY, doorWidth, doorHeight, 0x8B4513);
+    pixelRect(graphics, doorX + doorWidth + 4, doorY + 2, doorWidth - 4, doorHeight - 4, 0xA0522D); // Glass panel
 
-    // Door handles
-    graphics.circle(doorX + 4, doorY + doorHeight / 2, 1.5);
-    graphics.circle(doorX + doorWidth + doorWidth - 6, doorY + doorHeight / 2, 1.5);
-    graphics.fill(0xFFD700);
+    // Door handles (gold)
+    pixelRect(graphics, doorX + doorWidth - 2, doorY + doorHeight / 2 - 1, 2, 3, 0xFFD700);
+    pixelRect(graphics, doorX + doorWidth + 2, doorY + doorHeight / 2 - 1, 2, 3, 0xFFD700);
 
-    // Ceiling lights
+    // Ceiling lights (elegant fixtures)
     if (options.showLights) {
-      const lightSpacing = width / 5;
-      for (let x = lightSpacing / 2; x < width; x += lightSpacing) {
-        graphics.circle(x, 8, 3);
-        graphics.fill({ color: 0xFFFACD, alpha: 0.9 });
+      const numLights = Math.floor(width / 16);
+      for (let i = 0; i < numLights; i++) {
+        const x = (width / (numLights + 1)) * (i + 1);
+        pixelRect(graphics, x - 2, 6, 4, 2, 0xFFFACD); // Ceiling light
       }
     }
 
+    // Welcome mat (pixel art detail)
+    pixelRect(graphics, doorX - 4, height - 6, doorWidth * 2 + 8, 2, 0x8B0000);
+
     // Border
-    graphics.setStrokeStyle({ width: 2, color: 0x696969 });
+    graphics.setStrokeStyle({ width: 1, color: 0x696969 });
     graphics.rect(0, 0, width, height);
     graphics.stroke();
 
@@ -336,57 +378,108 @@ export class BuildingSprites {
   }
 
   /**
-   * CONDO - Residential apartments with balconies
+   * CONDO - Residential apartments with cozy interiors
    */
   private static renderCondo(g: PIXI.Container, width: number, height: number, options: BuildingRenderOptions, variant: number): void {
-    const graphics = new PIXI.Graphics();
+    const graphics = createPixelGraphics();
 
     // Warm residential colors
     const baseColors = [0xD2B48C, 0xC9A87C, 0xDEB887];
     const baseColor = baseColors[variant];
     
-    graphics.rect(0, 0, width, height);
-    graphics.fill(baseColor);
+    // Interior walls
+    pixelRect(graphics, 0, 0, width, height, baseColor);
 
-    // Apartment windows (larger than office windows)
-    const windowWidth = 10;
-    const windowHeight = 14;
-    const windowSpacingX = 16;
-    const windowSpacingY = 18;
-    const marginTop = 8;
-    const marginSide = 8;
+    // Floor and ceiling
+    const floorColor = darkenColor(baseColor, 0.2);
+    pixelRect(graphics, 0, 0, width, 2, floorColor); // Ceiling
+    pixelRect(graphics, 0, height - 2, width, 2, darkenColor(baseColor, 0.3)); // Floor (wood)
 
-    for (let y = marginTop; y < height - windowHeight; y += windowSpacingY) {
-      for (let x = marginSide; x < width - windowWidth; x += windowSpacingX) {
-        // Window with curtains
-        graphics.rect(x, y, windowWidth, windowHeight);
-        graphics.fill(0xF5F5DC);
-        
-        // Interior light or curtains
-        const isLit = options.showLights && Math.random() > 0.4; // 60% lit at night
-        const interiorColor = isLit ? 0xFFDAB9 : 0x8B7355;
-        
-        graphics.rect(x + 1, y + 1, windowWidth - 2, windowHeight - 2);
-        graphics.fill({ color: interiorColor, alpha: isLit ? 0.9 : 0.7 });
-        
-        // Window frame
-        graphics.setStrokeStyle({ width: 1, color: 0x8B7355 });
-        graphics.rect(x, y, windowWidth, windowHeight);
-        graphics.stroke();
+    // Apartment interior - divide into rooms
+    const roomWidth = 32;
+    const numRooms = Math.floor(width / roomWidth);
+    
+    for (let i = 0; i < numRooms; i++) {
+      const roomX = i * roomWidth + 4;
+      const roomType = i % 3; // Vary room types
+      
+      switch (roomType) {
+        case 0: // Bedroom
+          // Bed
+          pixelFurniture(graphics, roomX + 2, height - 12, 'bed', 0x8B4513);
+          // Person in bed (if night)
+          if (options.showLights && Math.random() > 0.4) {
+            pixelPerson(graphics, roomX + 6, height - 10, 0xFFDAB9, 'right');
+          }
+          // Nightstand
+          pixelFurniture(graphics, roomX + 15, height - 10, 'table', 0x654321);
+          // Lamp (lit at night)
+          if (options.showLights) {
+            pixelRect(graphics, roomX + 17, height - 14, 2, 4, 0xFFE4B5);
+          }
+          break;
+          
+        case 1: // Living room
+          // Couch
+          pixelRect(graphics, roomX + 2, height - 10, 10, 4, 0x8B0000);
+          // Person on couch
+          if (Math.random() > 0.5) {
+            pixelPerson(graphics, roomX + 4, height - 14, 0x4A4A4A, 'right');
+          }
+          // TV
+          const tvColor = options.showLights ? 0x87CEEB : 0x2F2F2F;
+          pixelRect(graphics, roomX + 14, height - 12, 4, 6, 0x1C1C1C);
+          pixelRect(graphics, roomX + 15, height - 11, 2, 4, tvColor);
+          // Plant
+          pixelFurniture(graphics, roomX + 20, height - 10, 'plant');
+          break;
+          
+        case 2: // Kitchen/dining
+          // Table
+          pixelFurniture(graphics, roomX + 4, height - 10, 'table', 0x8B4513);
+          // Chairs
+          pixelFurniture(graphics, roomX + 2, height - 10, 'chair', 0x654321);
+          pixelFurniture(graphics, roomX + 11, height - 10, 'chair', 0x654321);
+          // Person at table
+          if (Math.random() > 0.6) {
+            pixelPerson(graphics, roomX + 3, height - 14, 0x2F4F4F, 'right');
+          }
+          // Kitchen counter
+          pixelRect(graphics, roomX + 16, height - 10, 8, 4, 0x696969);
+          break;
+      }
+      
+      // Room divider wall (every other room)
+      if (i < numRooms - 1) {
+        const wallColor = darkenColor(baseColor, 0.4);
+        pixelRect(graphics, roomX + roomWidth - 2, 4, 1, height - 8, wallColor);
       }
     }
 
-    // Balcony railings (every other row, offset)
-    graphics.setStrokeStyle({ width: 2, color: 0x696969 });
-    for (let y = marginTop + windowSpacingY; y < height; y += windowSpacingY * 2) {
-      const balconyY = y + windowHeight;
-      graphics.moveTo(marginSide, balconyY);
-      graphics.lineTo(width - marginSide, balconyY);
+    // Windows (exterior view)
+    const windowWidth = 10;
+    const windowHeight = 12;
+    const windowSpacingX = 32;
+    const marginTop = 6;
+    
+    for (let x = 8; x < width - windowWidth; x += windowSpacingX) {
+      const isLit = options.showLights && Math.random() > 0.4; // 60% lit at night
+      pixelWindow(graphics, x, marginTop, windowWidth, windowHeight, isLit, 0x8B7355);
+      
+      // Curtains (decorative, pixel-art style)
+      if (Math.random() > 0.5) {
+        pixelRect(graphics, x + 1, marginTop + 2, 2, windowHeight - 4, 0x8B0000);
+        pixelRect(graphics, x + windowWidth - 3, marginTop + 2, 2, windowHeight - 4, 0x8B0000);
+      }
     }
+
+    // Balcony (subtle pixel line)
+    graphics.setStrokeStyle({ width: 1, color: 0x696969 });
+    graphics.rect(0, height - 6, width, 1);
     graphics.stroke();
 
     // Building border
-    graphics.setStrokeStyle({ width: 2, color: 0x8B6F47 });
+    graphics.setStrokeStyle({ width: 1, color: 0x8B6F47 });
     graphics.rect(0, 0, width, height);
     graphics.stroke();
 
@@ -394,10 +487,10 @@ export class BuildingSprites {
   }
 
   /**
-   * FAST FOOD - Bright, commercial look
+   * FAST FOOD - Bright, commercial look with customers and counter
    */
   private static renderFastFood(g: PIXI.Container, width: number, height: number, options: BuildingRenderOptions, variant: number): void {
-    const graphics = new PIXI.Graphics();
+    const graphics = createPixelGraphics();
 
     // Bright commercial colors
     const brandColors = [0xFF6347, 0xFFD700, 0xFF8C00];
@@ -589,53 +682,76 @@ export class BuildingSprites {
   }
 
   /**
-   * HOTEL - Luxury accommodations
+   * HOTEL - Luxury accommodations with visible interiors
    */
   private static renderHotel(g: PIXI.Container, width: number, height: number, options: BuildingRenderOptions, variant: number, type: string): void {
-    const graphics = new PIXI.Graphics();
+    const graphics = createPixelGraphics();
 
     // Hotel luxury colors (darker = more expensive)
     const baseColor = type === 'hotelSuite' ? 0x4A3766 : 
                      type === 'hotelTwin' ? 0x6B4E8C : 
                      0x7B68A6;
     
-    graphics.rect(0, 0, width, height);
-    graphics.fill(baseColor);
+    // Interior background
+    pixelRect(graphics, 0, 0, width, height, baseColor);
+    
+    // Floor and walls
+    const wallColor = darkenColor(baseColor, 0.2);
+    pixelRect(graphics, 0, 0, width, 2, wallColor); // Ceiling
+    pixelRect(graphics, 0, height - 2, width, 2, darkenColor(baseColor, 0.3)); // Floor (carpet)
+    
+    // Room interior - beds and furniture
+    const bedSpacing = type === 'hotelSuite' ? 24 : type === 'hotelTwin' ? 16 : 14;
+    const numBeds = type === 'hotelTwin' ? 2 : 1;
+    const isOccupied = Math.random() > 0.5; // 50% occupancy
+    
+    // Beds
+    for (let i = 0; i < numBeds; i++) {
+      const bedX = 4 + i * (bedSpacing + 4);
+      pixelFurniture(graphics, bedX, height - 12, 'bed', 0x8B4513);
+      
+      // Guest in bed (if occupied and night time)
+      if (isOccupied && options.showLights) {
+        pixelPerson(graphics, bedX + 4, height - 10, 0xFFDAB9, 'right');
+      }
+    }
+    
+    // Nightstand with lamp (luxury feature)
+    if (type === 'hotelSuite' || type === 'hotelTwin') {
+      pixelFurniture(graphics, width - 12, height - 10, 'table', 0x654321);
+      if (isOccupied && options.showLights) {
+        pixelRect(graphics, width - 10, height - 14, 2, 4, 0xFFE4B5); // Lamp lit
+      }
+    }
+    
+    // Suite extras - sofa and TV
+    if (type === 'hotelSuite') {
+      pixelRect(graphics, 2, height - 20, 8, 3, 0x8B0000); // Mini sofa
+      const tvColor = isOccupied && options.showLights ? 0x87CEEB : 0x2F2F2F;
+      pixelRect(graphics, width / 2 - 4, height - 16, 6, 4, tvColor); // TV
+    }
 
-    // Hotel windows (elegant, with curtains)
-    const windowWidth = 12;
-    const windowHeight = 14;
-    const windowSpacingX = 18;
-    const windowSpacingY = 18;
-    const margin = 8;
-
-    for (let y = margin; y < height - windowHeight; y += windowSpacingY) {
-      for (let x = margin; x < width - windowWidth; x += windowSpacingX) {
-        // Window frame (gold for suite, silver for others)
-        const frameColor = type === 'hotelSuite' ? 0xFFD700 : 0xC0C0C0;
-        graphics.rect(x, y, windowWidth, windowHeight);
-        graphics.fill(frameColor);
-        
-        // Window interior
-        const isOccupied = options.showLights && Math.random() > 0.5; // 50% occupancy
-        const interiorColor = isOccupied ? 0xFFF8DC : this.darkenColor(baseColor, 0.3);
-        
-        graphics.rect(x + 1, y + 1, windowWidth - 2, windowHeight - 2);
-        graphics.fill({ color: interiorColor, alpha: isOccupied ? 0.95 : 1 });
-        
-        // Curtains visible from outside
-        if (Math.random() > 0.6) {
-          graphics.rect(x + 2, y + 2, 3, windowHeight - 4);
-          graphics.fill({ color: 0x8B0000, alpha: 0.6 });
-          graphics.rect(x + windowWidth - 5, y + 2, 3, windowHeight - 4);
-          graphics.fill({ color: 0x8B0000, alpha: 0.6 });
-        }
+    // Windows (exterior view)
+    const windowWidth = 10;
+    const windowHeight = 10;
+    const marginTop = 6;
+    
+    for (let x = 6; x < width - windowWidth; x += 20) {
+      const windowLit = isOccupied && options.showLights;
+      const frameColor = type === 'hotelSuite' ? 0xFFD700 : 0xC0C0C0;
+      pixelWindow(graphics, x, marginTop, windowWidth, windowHeight, windowLit, frameColor);
+      
+      // Curtains (pixel art style)
+      if (Math.random() > 0.5) {
+        pixelRect(graphics, x + 1, marginTop + 2, 2, windowHeight - 4, 0x8B0000);
+        pixelRect(graphics, x + windowWidth - 3, marginTop + 2, 2, windowHeight - 4, 0x8B0000);
       }
     }
 
     // Hotel sign area (top) - gold trim
-    graphics.setStrokeStyle({ width: 3, color: 0xDAA520 });
-    graphics.rect(2, 2, width - 4, 12);
+    const frameColor = type === 'hotelSuite' ? 0xFFD700 : 0xC0C0C0;
+    graphics.setStrokeStyle({ width: 2, color: frameColor });
+    graphics.rect(2, 2, width - 4, 8);
     graphics.stroke();
 
     // Border

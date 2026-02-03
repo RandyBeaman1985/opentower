@@ -23,13 +23,13 @@ export const PIXEL_ART_CONFIG = {
 
 /**
  * Create a pixel-perfect graphics object
- * No anti-aliasing, snaps to pixel boundaries
+ * Configured for crisp pixel-art rendering
  */
 export function createPixelGraphics(): PIXI.Graphics {
   const graphics = new PIXI.Graphics();
   
-  // Disable anti-aliasing for sharp pixel edges
-  graphics.antialias = false;
+  // In PIXI v8, anti-aliasing is controlled at the app/renderer level
+  // Graphics objects render with the app's setting
   
   return graphics;
 }
