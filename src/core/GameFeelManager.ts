@@ -13,14 +13,24 @@ import { FloatingTextSystem } from '../rendering/FloatingText';
 import type { Building } from '@/interfaces';
 import { RENDER_CONSTANTS } from '../rendering/TowerRenderer';
 import { BUILDING_CONFIGS } from '@/interfaces/buildings';
+import type { Camera } from '../rendering/Camera';
 
 export class GameFeelManager {
   private particleEffect: ParticleEffect;
   private floatingText: FloatingTextSystem;
+  private camera: Camera | null = null;
   
-  constructor(particleEffect: ParticleEffect, floatingText: FloatingTextSystem) {
+  constructor(particleEffect: ParticleEffect, floatingText: FloatingTextSystem, camera?: Camera) {
     this.particleEffect = particleEffect;
     this.floatingText = floatingText;
+    this.camera = camera || null;
+  }
+
+  /**
+   * Set camera for screen settle effects
+   */
+  setCamera(camera: Camera): void {
+    this.camera = camera;
   }
   
   /**
@@ -38,6 +48,12 @@ export class GameFeelManager {
     const width = (building.position.endTile - building.position.startTile + 1) * RENDER_CONSTANTS.TILE_WIDTH;
     this.particleEffect.createConstructionDust(x, y, width);
     this.particleEffect.createSparkles(x, y, 5);
+    
+    // Screen settle effect (subtle drop/settle)
+    if (this.camera) {
+      const intensity = Math.min(1.5, building.height * 0.3); // Bigger buildings = bigger settle
+      this.camera.applySettle(intensity);
+    }
     
     // Floating text showing cost
     const cost = BUILDING_CONFIGS[building.type].cost;
@@ -92,11 +108,25 @@ export class GameFeelManager {
    * Quarterly income collected feedback
    */
   onQuarterlyIncome(totalIncome: number, towerCenterX: number, towerCenterY: number): void {
-    // Sound (already played in EconomicSystem)
-    
     // Big money burst at tower center
     if (totalIncome > 0) {
-      this.particleEffect.createMoneyBurst(towerCenterX, towerCenterY, totalIncome);
+      // Extra burst for large incomes
+      const burstCount = totalIncome > 50000 ? 3 : totalIncome > 10000 ? 2 : 1;
+      
+      for (let i = 0; i < burstCount; i++) {
+        setTimeout(() => {
+          this.particleEffect.createMoneyBurst(towerCenterX, towerCenterY, totalIncome);
+          
+          // Sparkles around the money
+          const offsetX = (Math.random() - 0.5) * 100;
+          const offsetY = (Math.random() - 0.5) * 60;
+          this.particleEffect.createSparkles(
+            towerCenterX + offsetX,
+            towerCenterY + offsetY,
+            6
+          );
+        }, i * 150);
+      }
       
       // Show total quarterly income
       this.floatingText.create({
@@ -109,6 +139,11 @@ export class GameFeelManager {
         velocityY: -0.5,
         bold: true,
       });
+      
+      // Subtle screen settle for big paydays
+      if (this.camera && totalIncome > 10000) {
+        this.camera.applySettle(0.8);
+      }
     }
   }
   
@@ -168,10 +203,16 @@ export class GameFeelManager {
    */
   onBuildingIncome(building: Building, income: number): void {
     const x = (building.position.startTile + (building.position.endTile - building.position.startTile) / 2) * RENDER_CONSTANTS.TILE_WIDTH;
-    const y = building.position.floor * RENDER_CONSTANTS.FLOOR_HEIGHT;
+    const y = building.position.floor * RENDER_CONSTANTS.FLOOR_HEIGHT + RENDER_CONSTANTS.FLOOR_HEIGHT / 2;
     
     if (income > 0) {
+      // Floating money text
       this.floatingText.createMoneyPopup(income, x, y);
+      
+      // Green flash on building
+      const width = (building.position.endTile - building.position.startTile + 1) * RENDER_CONSTANTS.TILE_WIDTH;
+      const height = building.height * RENDER_CONSTANTS.FLOOR_HEIGHT;
+      this.particleEffect.createIncomeFlash(x, y, width, height);
     }
   }
   

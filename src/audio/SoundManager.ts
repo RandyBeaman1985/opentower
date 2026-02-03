@@ -437,6 +437,76 @@ export class SoundManager {
   }
   
   /**
+   * Play notification pop sound
+   * Subtle UI feedback for notifications
+   */
+  playNotificationPop(): void {
+    if (!this.enabled) return;
+
+    try {
+      const ctx = this.ensureContext();
+      const now = ctx.currentTime;
+      const vol = this.getVolume('sfx');
+
+      // Quick pop sound (high to low pitch)
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(600, now);
+      osc.frequency.exponentialRampToValueAtTime(400, now + 0.05);
+      
+      gain.gain.setValueAtTime(vol * 0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.08);
+    } catch (error) {
+      console.warn('Failed to play notification pop:', error);
+    }
+  }
+  
+  /**
+   * Play urgent notification beep
+   * Attention-grabbing but not annoying
+   */
+  playNotificationBeep(level: 'info' | 'warning' | 'urgent' = 'info'): void {
+    if (!this.enabled) return;
+
+    try {
+      const ctx = this.ensureContext();
+      const now = ctx.currentTime;
+      const vol = this.getVolume('sfx');
+
+      const config = {
+        info: { freq: 500, duration: 0.1, volume: 0.1 },
+        warning: { freq: 650, duration: 0.12, volume: 0.2 },
+        urgent: { freq: 800, duration: 0.15, volume: 0.3 },
+      }[level];
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.value = config.freq;
+      
+      gain.gain.setValueAtTime(vol * config.volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + config.duration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + config.duration);
+    } catch (error) {
+      console.warn('Failed to play notification beep:', error);
+    }
+  }
+  
+  /**
    * Play construction sound
    * Hammering/drilling noise
    */

@@ -6,7 +6,7 @@
 import { Game } from '@core/Game';
 import { BuildingPlacer, BuildingMenu } from '@/ui';
 import { TowerPulse } from '@/ui/TowerPulse';
-import { TutorialOverlay } from '@/ui/TutorialOverlay';
+import { TutorialOverlay, UIHints } from '@/ui/TutorialOverlay';
 import { StarRatingNotification } from '@/ui/StarRatingNotification';
 import { BuildingTooltip } from '@/ui/BuildingTooltip';
 import { RandomEventNotification } from '@/ui/RandomEventNotification';
@@ -16,14 +16,16 @@ import { getEventBus } from '@core/EventBus';
 import { getSoundManager } from '@/audio/SoundManager';
 import { installPerformanceBenchmark } from '@/test/PerformanceBenchmark';
 import { installSystemVerification } from '@/utils/SystemVerification';
+import { AutomatedSmokeTest, type SmokeTestResult } from '@/test/AutomatedSmokeTest';
 
 // Make game globally accessible for debugging
 declare global {
   interface Window {
     game: Game;
     placer: BuildingPlacer;
-    runPerformanceBenchmark?: () => Promise<void>;
-    verifyGameSystems?: () => Promise<void>;
+    runPerformanceBenchmark: () => Promise<void>;
+    verifyGameSystems: () => Promise<void>;
+    runSmokeTest: () => Promise<SmokeTestResult[]>;
   }
 }
 
@@ -46,6 +48,13 @@ async function main() {
 
   // Install system verification (Week 10 - Visual Polish Verification)
   installSystemVerification(game);
+
+  // Install automated smoke test (v0.15.0 - Core Loop Verification)
+  window.runSmokeTest = async () => {
+    const smokeTest = new AutomatedSmokeTest(game);
+    return await smokeTest.runAll();
+  };
+  console.log('🧪 Smoke Test available: window.runSmokeTest()');
 
   // Try to load existing save
   const saveLoadManager = game.getSaveLoadManager();
@@ -89,9 +98,16 @@ async function main() {
   menu.setFunds(tower.funds);
   menu.setupKeyboardShortcuts();
 
-  // Connect menu to placer
+  // Connect menu to placer (will be updated after tutorial is created)
+  let tutorialRef: TutorialOverlay | null = null;
+  
   menu.onSelect((type) => {
     placer.selectBuildingType(type);
+    
+    // Tutorial progression: advance when lobby is selected
+    if (tutorialRef && tutorialRef.getCurrentStep() === 'select-lobby' && type === 'lobby') {
+      tutorialRef.advanceStep();
+    }
   });
 
   // Set initial selection
@@ -110,6 +126,13 @@ async function main() {
   // Mouse move - update ghost preview AND tooltip
   canvas.addEventListener('mousemove', (e: MouseEvent) => {
     const transform = camera.getTransform();
+    const inputHandler = game.getInputHandler();
+    
+    // Don't update ghost if camera is being dragged
+    if (inputHandler?.isMiddleMouseDragging()) {
+      buildingTooltip.hide();
+      return;
+    }
     
     if (isDragging && !isElevatorDrag) {
       // Hide tooltip while dragging
@@ -181,7 +204,10 @@ async function main() {
 
   // Mouse up - place building or elevator
   canvas.addEventListener('mouseup', (e: MouseEvent) => {
-    if (e.button === 0) {
+    const inputHandler = game.getInputHandler();
+    
+    // Don't place buildings if camera was being dragged
+    if (e.button === 0 && !inputHandler?.isMiddleMouseDragging()) {
       if (isElevatorDrag) {
         // End elevator drag placement
         const placed = placer.endElevatorDrag();
@@ -201,6 +227,11 @@ async function main() {
           
           // Play placement sound
           getSoundManager().playBuildingPlaced();
+          
+          // Tutorial progression: advance when first building is placed
+          if (tutorialRef && tutorialRef.getCurrentStep() === 'place-lobby') {
+            tutorialRef.advanceStep();
+          }
           
           // Workers will spawn naturally during morning rush (7:30-9:00 AM)
           // No instant spawning - makes rush hours more visible!
@@ -293,8 +324,11 @@ async function main() {
   console.log('');
   console.log('🎮 Controls:');
   console.log('  - Click to place buildings');
-  console.log('  - Drag to pan, scroll to zoom');
+  console.log('  - WASD / Arrow Keys: Pan camera');
+  console.log('  - Mouse Wheel: Zoom in/out');
+  console.log('  - Middle Mouse / Ctrl+Drag: Pan camera');
   console.log('  - 1-9: Quick-select buildings');
+  console.log('  - X: Demolish mode');
   console.log('  - 0-4: Speed control');
   console.log('  - Ctrl+D: Toggle debug');
   console.log('');
@@ -319,11 +353,40 @@ async function main() {
   const buildingTooltip = new BuildingTooltip();
   buildingTooltip.setEvaluationSystem(game.getEvaluationSystem());
 
-  // Add tutorial overlay
+  // Add UI Hints (keyboard shortcuts)
+  const uiHints = new UIHints();
+
+  // Add tutorial overlay (interactive)
   const tutorial = new TutorialOverlay();
+  tutorialRef = tutorial; // Store reference for callbacks
+  const isFirstTime = !TutorialOverlay.hasCompletedTutorial();
+  
+  // Hide UI hints during tutorial
+  if (isFirstTime) {
+    uiHints.hide();
+  }
+  
+  // Tutorial step progression logic
+  tutorial.setOnStepChange((step) => {
+    console.log(`Tutorial step: ${step}`);
+    
+    if (step === 'select-lobby') {
+      // Waiting for player to select lobby
+      // This will be triggered by menu.onSelect callback
+    } else if (step === 'place-lobby') {
+      // Waiting for player to place lobby
+      // This will be triggered by building placement callback
+    }
+  });
+  
+  // Tutorial completion callback
+  tutorial.setOnComplete(() => {
+    console.log('🎓 Tutorial completed!');
+    uiHints.show(); // Show UI hints after tutorial
+  });
   
   // Show tutorial on first launch
-  if (!TutorialOverlay.hasCompletedTutorial()) {
+  if (isFirstTime) {
     tutorial.show();
   }
 
@@ -642,9 +705,9 @@ function addDemolishButton(placer: BuildingPlacer, menu: BuildingMenu) {
     }
   });
   
-  // Add keyboard shortcut (D key)
+  // Add keyboard shortcut (X key - X marks the spot!)
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'd' && !e.ctrlKey && !e.metaKey) {
+    if (e.key === 'x' && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
       button.click();
     }

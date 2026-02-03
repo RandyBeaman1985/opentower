@@ -493,12 +493,12 @@ export class NotificationSystem {
   }
 
   /**
-   * Play notification sound effect (hint for audio system)
+   * Play notification sound effect
    * 
    * Sound strategy:
-   * - info/success: No sound (common notifications)
-   * - warning: Subtle beep
-   * - urgent: Attention-grabbing alert
+   * - info/success: Subtle pop
+   * - warning: Warning beep
+   * - urgent: Urgent beep
    * - star: Fanfare/celebration sound
    */
   private playNotificationSound(type: NotificationType): void {
@@ -506,20 +506,25 @@ export class NotificationSystem {
     
     switch (type) {
       case 'star':
-        // Star rating fanfare (already exists)
+        // Star rating fanfare
         soundManager.playStarRatingUp();
         break;
       
       case 'urgent':
-      case 'warning':
-        // TODO: Add notification beep sounds to SoundManager
-        // For now, try to use existing sounds or remain silent
-        // soundManager.playNotificationBeep(type === 'urgent' ? 'urgent' : 'warning');
-        console.log(`[NotificationSystem] Sound hint: ${type} notification`);
+        soundManager.playNotificationBeep('urgent');
         break;
       
-      default:
-        // No sound for info/success
+      case 'warning':
+        soundManager.playNotificationBeep('warning');
+        break;
+      
+      case 'success':
+        soundManager.playNotificationPop();
+        break;
+      
+      case 'info':
+        // Very subtle pop for info
+        soundManager.playNotificationPop();
         break;
     }
   }

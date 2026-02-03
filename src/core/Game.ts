@@ -33,6 +33,7 @@ import { FloatingTextSystem } from '@rendering/FloatingText';
 import { GameFeelManager } from './GameFeelManager';
 import { GameHUD } from '@rendering/GameHUD';
 import { Person } from '@/entities/Person';
+import { InputHandler } from './InputHandler';
 
 export interface GameConfig {
   /** Width of the game canvas */
@@ -85,6 +86,7 @@ export class Game {
   private floatingText: FloatingTextSystem | null = null;
   private gameFeelManager: GameFeelManager | null = null;
   private gameHUD: GameHUD | null = null;
+  private inputHandler: InputHandler | null = null;
   private state: GameState = GameState.INITIALIZING;
   private frameId: number | null = null;
   private currentTick: number = 0;
@@ -164,6 +166,16 @@ export class Game {
     if (import.meta.env.DEV) {
       this.towerRenderer.setDebugMode(true);
     }
+    
+    // Initialize input handler for camera controls
+    this.inputHandler = new InputHandler(
+      this.towerRenderer.getCamera(),
+      this.app.canvas as HTMLCanvasElement
+    );
+    
+    // Center camera on lobby area (floor 1, center of tower)
+    const camera = this.towerRenderer.getCamera();
+    camera.centerOnFloor(1); // Start at ground floor lobby
 
     // Initialize game feel systems (juice & polish!)
     const effectsLayer = this.towerRenderer.getWorldContainer();
@@ -172,7 +184,7 @@ export class Game {
     
     this.particleEffect = new ParticleEffect(effectsLayer);
     this.floatingText = new FloatingTextSystem(uiLayer);
-    this.gameFeelManager = new GameFeelManager(this.particleEffect, this.floatingText);
+    this.gameFeelManager = new GameFeelManager(this.particleEffect, this.floatingText, camera);
     this.gameHUD = new GameHUD(uiLayer);
 
     // Initialize save/load manager
@@ -277,6 +289,18 @@ export class Game {
         }
       }
     });
+    
+    // Listen for quarterly income collection
+    eventBus.on('QUARTERLY_COLLECTION', (event) => {
+      if (this.gameFeelManager && this.app && event.type === 'QUARTERLY_COLLECTION') {
+        // Calculate tower center for particle effects
+        const towerCenterX = this.app.screen.width / 2;
+        const towerCenterY = this.app.screen.height / 2;
+        const totalIncome = event.report.netProfit;
+        
+        this.gameFeelManager.onQuarterlyIncome(totalIncome, towerCenterX, towerCenterY);
+      }
+    });
   }
 
   /**
@@ -348,6 +372,12 @@ export class Game {
 
     // Update FPS counter
     this.updateFPS(currentTime);
+    
+    // Update input handler (camera controls)
+    const deltaTime = (currentTime - this.lastFrameTime) / 1000; // seconds
+    if (this.inputHandler) {
+      this.inputHandler.update(deltaTime);
+    }
 
     // Process pre-update events
     getEventBus().processPhase(GamePhase.PRE_UPDATE);
@@ -636,6 +666,13 @@ export class Game {
   }
 
   /**
+   * Get the clock instance (for testing/verification)
+   */
+  getClock() {
+    return this.timeSystem.getClock();
+  }
+
+  /**
    * Get current game state
    */
   getState(): GameState {
@@ -761,16 +798,38 @@ export class Game {
   getSaveLoadManager(): SaveLoadManager | null {
     return this.saveLoadManager;
   }
+  
+  /**
+   * Get the input handler
+   */
+  getInputHandler(): InputHandler | null {
+    return this.inputHandler;
+  }
 
   /**
    * Destroy the game and clean up resources
    */
+
+  /**
+   * Run a single simulation tick (for testing/smoke tests)
+   * @internal This is for automated testing only - bypasses normal timing
+   */
+  runSimulationTick(): void {
+    this.simulationTick();
+  }
+
   destroy(): void {
     this.stop();
 
     // Stop auto-save
     if (this.saveLoadManager) {
       this.saveLoadManager.stopAutoSave();
+    }
+    
+    // Detach input handler
+    if (this.inputHandler) {
+      this.inputHandler.detach();
+      this.inputHandler = null;
     }
 
     if (this.towerRenderer) {

@@ -221,6 +221,30 @@ export class ParticleEffect {
   }
   
   /**
+   * Create income flash effect (green highlight)
+   * Subtle visual feedback when buildings earn money
+   */
+  createIncomeFlash(x: number, y: number, width: number, height: number): void {
+    // Create a rectangular flash overlay
+    const sprite = new PIXI.Graphics();
+    sprite.rect(-width / 2, -height / 2, width, height);
+    sprite.fill({ color: 0x00ff00, alpha: 0.3 });
+    
+    this.container.addChild(sprite);
+    
+    this.particles.push({
+      sprite,
+      vx: 0,
+      vy: 0,
+      life: 20, // Quick flash
+      maxLife: 20,
+    });
+    
+    sprite.x = x;
+    sprite.y = y;
+  }
+  
+  /**
    * Update all particles
    */
   update(): void {

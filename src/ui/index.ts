@@ -6,7 +6,7 @@ export { BuildingPlacer, BUILDING_CONSTRAINTS, BUILDING_COLORS } from './Buildin
 export { BuildingMenu } from './BuildingMenu';
 export { TowerPulse } from './TowerPulse';
 export { GameOverModal } from './GameOverModal';
-export { TutorialOverlay } from './TutorialOverlay';
+export { TutorialOverlay, UIHints } from './TutorialOverlay';
 export { StarRatingNotification } from './StarRatingNotification';
 export { BuildingTooltip } from './BuildingTooltip';
 export { RandomEventNotification } from './RandomEventNotification';

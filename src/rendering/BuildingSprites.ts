@@ -17,6 +17,15 @@ import {
   createBuildingSprite as createSpriteAsset, 
   getBuildingState 
 } from './sprites/BuildingSprites';
+import {
+  createPixelGraphics,
+  pixelRect,
+  pixelWindow,
+  pixelPerson,
+  pixelFurniture,
+  snapToPixel,
+  darkenColor,
+} from './PixelArtRenderer';
 
 export interface BuildingRenderOptions {
   showLights: boolean;
@@ -251,61 +260,77 @@ export class BuildingSprites {
   }
 
   /**
-   * OFFICE - Professional office building with window grid
+   * OFFICE - Professional office building with window grid and interior details
    */
   private static renderOffice(g: PIXI.Container, width: number, height: number, options: BuildingRenderOptions, variant: number): void {
-    const graphics = new PIXI.Graphics();
+    const graphics = createPixelGraphics();
 
     // Building color (varies by variant - different companies)
     const baseColors = [0x5B7C99, 0x6B8CAF, 0x4A6B82];
     const baseColor = baseColors[variant];
     
-    graphics.rect(0, 0, width, height);
-    graphics.fill(baseColor);
+    // Background (office interior)
+    pixelRect(graphics, 0, 0, width, height, baseColor);
 
-    // Window grid pattern
+    // Floor and ceiling
+    const floorColor = darkenColor(baseColor, 0.3);
+    pixelRect(graphics, 0, 0, width, 3, floorColor); // Ceiling
+    pixelRect(graphics, 0, height - 3, width, 3, floorColor); // Floor
+
+    // Office interior - desks and workers
+    const occupancyRate = options.variant ?? 0.7; // How many desks are occupied
+    const deskSpacing = 16;
+    let deskX = 4;
+    
+    for (let x = 4; x < width - 12; x += deskSpacing) {
+      // Desk
+      pixelFurniture(graphics, x, height - 12, 'desk', 0x8B4513);
+      
+      // Chair
+      pixelFurniture(graphics, x + 9, height - 12, 'chair', 0x4A4A4A);
+      
+      // Person at desk (if occupied)
+      if (Math.random() < occupancyRate) {
+        pixelPerson(graphics, x + 9, height - 20, 0x2F4F4F, 'right');
+      }
+      
+      // Computer/monitor on desk (lit if occupied and lights on)
+      const hasComputer = Math.random() < 0.8;
+      if (hasComputer) {
+        const monitorColor = options.showLights && Math.random() < 0.7 ? 0x87CEEB : 0x2F2F2F;
+        pixelRect(graphics, x + 2, height - 16, 3, 4, monitorColor);
+      }
+      
+      deskX += deskSpacing;
+    }
+
+    // Office plants (decorative)
+    const numPlants = Math.floor(width / 48);
+    for (let i = 0; i < numPlants; i++) {
+      const plantX = 8 + i * 48 + Math.floor(Math.random() * 8);
+      pixelFurniture(graphics, plantX, height - 10, 'plant');
+    }
+
+    // Windows with frames (exterior view)
     const windowWidth = 8;
     const windowHeight = 10;
     const windowSpacingX = 12;
-    const windowSpacingY = 14;
     const marginTop = 6;
     const marginSide = 4;
-
-    const windowLitColor = 0xFFE4B5; // Warm office light
-    const windowDarkColor = this.darkenColor(baseColor, 0.4);
     
-    for (let y = marginTop; y < height - windowHeight; y += windowSpacingY) {
-      for (let x = marginSide; x < width - windowWidth; x += windowSpacingX) {
-        // Window frame
-        graphics.rect(x, y, windowWidth, windowHeight);
-        graphics.fill(0xD3D3D3);
-        
-        // Window glass (randomly lit or dark)
-        const isLit = options.showLights && Math.random() > 0.3; // 70% lit at night
-        const windowColor = isLit ? windowLitColor : windowDarkColor;
-        
-        graphics.rect(x + 1, y + 1, windowWidth - 2, windowHeight - 2);
-        graphics.fill({ color: windowColor, alpha: isLit ? 0.95 : 1 });
-        
-        // Window cross divider
-        graphics.setStrokeStyle({ width: 1, color: 0x696969, alpha: 0.5 });
-        graphics.moveTo(x + windowWidth / 2, y + 1);
-        graphics.lineTo(x + windowWidth / 2, y + windowHeight - 1);
-        graphics.moveTo(x + 1, y + windowHeight / 2);
-        graphics.lineTo(x + windowWidth - 1, y + windowHeight / 2);
-        graphics.stroke();
-      }
+    for (let x = marginSide; x < width - windowWidth; x += windowSpacingX) {
+      const isLit = options.showLights && Math.random() > 0.3; // 70% lit at night
+      pixelWindow(graphics, x, marginTop, windowWidth, windowHeight, isLit);
     }
 
-    // Building outline
-    graphics.setStrokeStyle({ width: 2, color: 0x2F4F4F });
+    // Building outline (pixel-perfect)
+    graphics.setStrokeStyle({ width: 1, color: 0x2F4F4F });
     graphics.rect(0, 0, width, height);
     graphics.stroke();
 
     // Company name plate (top)
-    const plateHeight = 5;
-    graphics.rect(2, 2, width - 4, plateHeight);
-    graphics.fill({ color: 0x2F4F4F, alpha: 0.8 });
+    const plateHeight = 4;
+    pixelRect(graphics, 2, 2, width - 4, plateHeight, 0x2F4F4F);
 
     g.addChild(graphics);
   }

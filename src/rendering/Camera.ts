@@ -79,6 +79,11 @@ export class Camera {
   private dragStartCamX: number = 0;
   private dragStartCamY: number = 0;
 
+  // Screen settle effect (micro-movement on building placement)
+  private settleOffset: { x: number; y: number } = { x: 0, y: 0 };
+  private settleVelocity: { x: number; y: number } = { x: 0, y: 0 };
+  private settleDamping: number = 0.85;
+
   constructor(config?: Partial<CameraConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
 
@@ -232,6 +237,42 @@ export class Camera {
 
       this.emitCameraChange();
     }
+
+    // Update screen settle effect (spring damping)
+    if (Math.abs(this.settleOffset.x) > 0.01 || Math.abs(this.settleOffset.y) > 0.01 ||
+        Math.abs(this.settleVelocity.x) > 0.01 || Math.abs(this.settleVelocity.y) > 0.01) {
+      
+      // Spring force toward center
+      const springForce = 0.3;
+      this.settleVelocity.x += -this.settleOffset.x * springForce;
+      this.settleVelocity.y += -this.settleOffset.y * springForce;
+
+      // Apply damping
+      this.settleVelocity.x *= this.settleDamping;
+      this.settleVelocity.y *= this.settleDamping;
+
+      // Update position
+      this.settleOffset.x += this.settleVelocity.x;
+      this.settleOffset.y += this.settleVelocity.y;
+
+      // Stop when velocity is very small
+      if (Math.abs(this.settleVelocity.x) < 0.01 && Math.abs(this.settleVelocity.y) < 0.01) {
+        this.settleOffset.x = 0;
+        this.settleOffset.y = 0;
+        this.settleVelocity.x = 0;
+        this.settleVelocity.y = 0;
+      }
+    }
+  }
+
+  /**
+   * Apply screen settle effect (subtle micro-movement)
+   * Used for building placement feedback
+   */
+  applySettle(intensity: number = 1.0): void {
+    // Small downward impulse (like something landing)
+    this.settleVelocity.y += 0.8 * intensity;
+    this.settleVelocity.x += (Math.random() - 0.5) * 0.3 * intensity;
   }
 
   /**
@@ -323,11 +364,12 @@ export class Camera {
 
   /**
    * Get transformation values for PixiJS container
+   * Includes screen settle offset for juice
    */
   getTransform(): { x: number; y: number; scale: number } {
     return {
-      x: this.viewportWidth / 2 - this.state.x * this.state.zoom,
-      y: this.viewportHeight / 2 - this.state.y * this.state.zoom,
+      x: this.viewportWidth / 2 - this.state.x * this.state.zoom + this.settleOffset.x,
+      y: this.viewportHeight / 2 - this.state.y * this.state.zoom + this.settleOffset.y,
       scale: this.state.zoom,
     };
   }
