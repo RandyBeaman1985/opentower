@@ -28,6 +28,8 @@ import { RandomEventSystem } from '@simulation/RandomEventSystem';
 import { EvaluationSystem } from '@simulation/EvaluationSystem';
 import { OperatingCostSystem } from '@simulation/OperatingCostSystem';
 import { RushHourSystem } from '@simulation/RushHourSystem';
+import { BuildingHealthSystem } from '@simulation/BuildingHealthSystem';
+import { StarRatingSystem } from '@simulation/StarRatingSystem';
 import { ParticleEffect } from '@rendering/ParticleEffect';
 import { FloatingTextSystem } from '@rendering/FloatingText';
 import { GameFeelManager } from './GameFeelManager';
@@ -80,6 +82,8 @@ export class Game {
   private evaluationSystem: EvaluationSystem;
   private operatingCostSystem: OperatingCostSystem;
   private rushHourSystem: RushHourSystem;
+  private buildingHealthSystem: BuildingHealthSystem;
+  private starRatingSystem: StarRatingSystem;
   private saveLoadManager: SaveLoadManager | null = null;
   private towerRenderer: TowerRenderer | null = null;
   private particleEffect: ParticleEffect | null = null;
@@ -117,6 +121,8 @@ export class Game {
     this.evaluationSystem = new EvaluationSystem();
     this.operatingCostSystem = new OperatingCostSystem();
     this.rushHourSystem = new RushHourSystem();
+    this.buildingHealthSystem = new BuildingHealthSystem();
+    this.starRatingSystem = new StarRatingSystem();
   }
 
   /**
@@ -132,7 +138,7 @@ export class Game {
       backgroundColor: 0x87ceeb, // Sky blue
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
-      antialias: true,
+      antialias: false, // Disable antialiasing for crisp pixel art
     });
 
     // Add canvas to container
@@ -193,7 +199,8 @@ export class Game {
       this.populationSystem,
       this.elevatorSystem,
       this.economicSystem,
-      this.timeSystem // 🆕 BUG-020 FIX: Pass timeSystem for game speed saving
+      this.timeSystem, // 🆕 BUG-020 FIX: Pass timeSystem for game speed saving
+      this.starRatingSystem // 🆕 v0.18.0: Pass starRatingSystem for star progress saving (CRITICAL!)
     );
     
     // 🆕 v0.12.0: Wire up resident system callbacks for spawning/despawning
@@ -459,6 +466,11 @@ export class Game {
     // Update operating costs (daily expenses, bankruptcy check)
     this.operatingCostSystem.update(tower, this.currentTick);
 
+    // 🆕 v0.15.2: Building health system (damage from fires, bombs, neglect)
+    this.buildingHealthSystem.update(tower, this.currentTick);
+    // Attach to tower so EventSystem can access it
+    (tower as any).healthSystem = this.buildingHealthSystem;
+
     // Update economics (quarterly collection, now includes hotel income and rent)
     const hotelIncome = this.hotelSystem.getQuarterlyIncome();
     const rentIncome = this.residentSystem.getQuarterlyRentIncome();
@@ -535,11 +547,23 @@ export class Game {
     const cashFlow = this.economicSystem.getCashFlowSummary();
     const dailyIncome = cashFlow.incomePerDay;
 
-    // Update tower star rating
-    this.towerManager.updateStarRatingFactors(happinessPercent, dailyIncome);
+    // 🆕 v0.17.0: Integrated StarRatingSystem for full 5★ + TOWER progression
+    const tower = this.towerManager.getTower();
+    const averageEvaluation = this.evaluationSystem.getAverageEvaluation(tower);
+    const activeProblems = Object.keys(tower.activeEvents).length;
+    
+    this.starRatingSystem.evaluate({
+      population: tower.population,
+      satisfaction: averageEvaluation,
+      activeProblems: activeProblems
+    });
+    
+    // Sync tower's star rating with StarRatingSystem
+    const newStarRating = this.starRatingSystem.getRating();
+    this.towerManager.setStarRating(newStarRating);
     
     // Check for star rating increase (CELEBRATION!)
-    const currentStars = this.towerManager.getTower().starRating;
+    const currentStars = tower.starRating;
     if (currentStars > this.previousStarRating && this.gameFeelManager && this.app) {
       const screenCenterX = this.app.screen.width / 2;
       const screenCenterY = this.app.screen.height / 2;
@@ -790,6 +814,14 @@ export class Game {
    */
   getRandomEventSystem(): RandomEventSystem {
     return this.randomEventSystem;
+  }
+
+  /**
+   * Get the star rating system
+   * 🆕 v0.17.0: Full 5★ + TOWER progression
+   */
+  getStarRatingSystem(): StarRatingSystem {
+    return this.starRatingSystem;
   }
 
   /**

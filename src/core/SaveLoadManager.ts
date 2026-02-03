@@ -17,6 +17,7 @@ import { PopulationSystem } from '@simulation/PopulationSystem';
 import { ElevatorSystem } from '@simulation/ElevatorSystem';
 import { EconomicSystem } from '@simulation/EconomicSystem';
 import { TimeSystem } from '@simulation/TimeSystem';
+import { StarRatingSystem } from '@simulation/StarRatingSystem';
 
 const SAVE_KEY = 'opentower_save_v1';
 const AUTOSAVE_INTERVAL = 3 * 60 * 1000; // 3 minutes in milliseconds
@@ -44,6 +45,12 @@ export interface SaveData {
     clock: any;
     timeOfDay: any;
   };
+  // 🆕 v0.18.0: Save star rating progression (CRITICAL!)
+  starRatingState: {
+    rating: number;
+    completedEvents: string[];
+    history: any[];
+  };
 }
 
 export class SaveLoadManager {
@@ -52,6 +59,7 @@ export class SaveLoadManager {
   private elevatorSystem: ElevatorSystem;
   private economicSystem: EconomicSystem;
   private timeSystem: TimeSystem;
+  private starRatingSystem: StarRatingSystem;
   private autoSaveTimer: number | null = null;
   private playtimeStart: number;
   private totalPlaytime: number = 0;
@@ -61,13 +69,15 @@ export class SaveLoadManager {
     populationSystem: PopulationSystem,
     elevatorSystem: ElevatorSystem,
     economicSystem: EconomicSystem,
-    timeSystem: TimeSystem
+    timeSystem: TimeSystem,
+    starRatingSystem: StarRatingSystem
   ) {
     this.towerManager = towerManager;
     this.populationSystem = populationSystem;
     this.elevatorSystem = elevatorSystem;
     this.economicSystem = economicSystem;
     this.timeSystem = timeSystem;
+    this.starRatingSystem = starRatingSystem;
     this.playtimeStart = Date.now();
   }
 
@@ -85,6 +95,7 @@ export class SaveLoadManager {
         elevatorState: this.elevatorSystem.serialize(),
         economicState: this.economicSystem.serialize(),
         timeSystemState: this.timeSystem.serialize(), // 🆕 BUG-020 FIX
+        starRatingState: this.starRatingSystem.serialize(), // 🆕 v0.18.0: Save star rating!
       };
 
       const json = JSON.stringify(saveData);
@@ -94,6 +105,7 @@ export class SaveLoadManager {
       console.log(`  Tower: ${saveData.tower.name}`);
       console.log(`  Population: ${saveData.tower.population}`);
       console.log(`  Funds: $${saveData.tower.funds.toLocaleString()}`);
+      console.log(`  Star Rating: ${saveData.starRatingState.rating}★`); // 🆕 v0.18.0
       console.log(`  Playtime: ${Math.floor(saveData.playtime / 60000)} minutes`);
 
       return true;
@@ -133,6 +145,12 @@ export class SaveLoadManager {
       if (saveData.timeSystemState) {
         this.timeSystem.deserialize(saveData.timeSystemState);
       }
+      
+      // 🆕 v0.18.0: Restore star rating progression (CRITICAL!)
+      if (saveData.starRatingState) {
+        this.starRatingSystem.deserialize(saveData.starRatingState);
+        console.log('✅ Star rating restored:', saveData.starRatingState.rating, '★');
+      }
 
       // Restore playtime
       this.totalPlaytime = saveData.playtime;
@@ -142,7 +160,7 @@ export class SaveLoadManager {
       console.log(`  Tower: ${saveData.tower.name}`);
       console.log(`  Population: ${saveData.tower.population}`);
       console.log(`  Funds: $${saveData.tower.funds.toLocaleString()}`);
-      console.log(`  Star Rating: ${saveData.tower.starRating}★`);
+      console.log(`  Star Rating: ${saveData.starRatingState?.rating ?? saveData.tower.starRating}★`);
       console.log(`  Last Saved: ${new Date(saveData.timestamp).toLocaleString()}`);
 
       return true;

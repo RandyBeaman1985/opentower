@@ -452,6 +452,23 @@ export class TowerManager {
   }
 
   /**
+   * Set the tower's star rating directly
+   * 🆕 v0.17.0: Used by StarRatingSystem integration
+   */
+  setStarRating(newRating: StarRating): void {
+    if (newRating !== this.tower.starRating) {
+      const oldRating = this.tower.starRating;
+      this.tower.starRating = newRating;
+
+      getEventBus().emitSync({
+        type: 'STAR_CHANGE',
+        oldRating,
+        newRating,
+      });
+    }
+  }
+
+  /**
    * Get current star rating
    */
   getStarRating(): StarRating {

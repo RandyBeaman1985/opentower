@@ -380,7 +380,36 @@ TIME_EVENTS = {
 
 ---
 
-## ✅ CURRENT STATUS (Updated: Feb 2, 2026 - 8:00 PM MST)
+## ✅ CURRENT STATUS (Updated: Feb 3, 2026 - 6:58 AM MST)
+
+### 💾 CRITICAL FIX: STAR RATING NOW PERSISTS! (v0.18.0)
+
+**GAME-BREAKING BUG FIXED!** Star progression no longer resets on save/load!
+
+**What Was Broken (2026-02-03 6:00 AM):**
+- ❌ Players could reach 3★, save game, reload → back to 1★!
+- ❌ All building unlocks (party hall, cinema, medical) would lock again
+- ❌ Hours of progression lost instantly on reload
+- ❌ Made long-term play impossible
+
+**What Was Fixed:**
+- ✅ **StarRatingSystem now serialized** - Star rating, completed events, and history all saved
+- ✅ **SaveLoadManager integration** - Proper constructor, serialize/deserialize methods
+- ✅ **Building unlocks persist** - 2★/3★ buildings stay unlocked after reload
+- ✅ **Backward compatible** - Old saves gracefully fallback to tower.starRating
+- ✅ **Enhanced logging** - Console shows "Star Rating: 3★" on save/load
+
+**Impact:** Players can now work toward 4★/5★/TOWER without losing progress! The core progression loop now actually works!
+
+**Build:** ✅ Clean (741 modules, 8.95s, 557.62 kB +0.34 kB)  
+**Details:** See `.planning/CRON-SESSION-2026-02-03-6AM.md`
+
+**Why This Was MOST CRITICAL:**
+> From REAL-GAME-PLAN.md: "Unlocking buildings is the carrot. Make it work."
+
+Without save persistence, the carrot was rotten. No long-term progression possible. This was more critical than polish or performance because it **broke the core game loop**.
+
+---
 
 ### 💰 FINANCIAL REPORT MODAL COMPLETE! (v0.14.0)
 
@@ -504,16 +533,18 @@ TIME_EVENTS = {
 - ✅ **System Verification** - Automated health checks (2026-02-02 7:30 AM)
 - ✅ **Elevator Overlap Prevention** - Fixed exploit bug (2026-02-02 8:00 AM)
 - ✅ **Sound Integration** - NotificationSystem uses SoundManager (2026-02-02 10:17 AM)
+- ✅ **Building Health System** - Fires/bombs damage buildings, income reduced, repair costs money (2026-02-03 4:50 AM)
 
-**Build Status**: ✅ Clean, 724 modules, no TypeScript errors, 8.63s build time
+**Build Status**: ✅ Clean, 740 modules, no TypeScript errors, 9.75s build time (v0.15.2)
 
-### Phase 2 Status (Weeks 5-8): LARGELY COMPLETE
+### Phase 2 Status (Weeks 5-8): ✅ COMPLETE
 
-- ✅ Building Variety: 15+ building types (offices, hotels, condos, restaurants, shops, security, medical)
+- ✅ Building Variety: 21 building types (offices, hotels, condos, restaurants, shops, security, medical, etc.)
 - ✅ HotelSystem: Check-in, check-out, daily income
-- ✅ ResidentSystem: Condo residents, rent collection
+- ✅ ResidentSystem: Condo residents, rent collection, daily commutes
 - ✅ EventSystem: VIPs, fires, bombs, Santa event, treasure, cockroaches
 - ✅ RandomEventSystem: Maintenance issues, power outages, fire drills
+- ✅ **BuildingHealthSystem (v0.15.2):** Fire/bomb damage, income penalties, repair costs
 
 ### Phase 3 Status (Weeks 9-12): COMPLETE (Pending Human Verification)
 
@@ -592,7 +623,15 @@ The game needs comprehensive testing:
    - Identify critical bugs and UX issues
    - Validate 30+ minute average play session
 
-## 🚀 ORIGINAL STARTING POINT (ARCHIVED)
+## ✅ ORIGINAL TODO: RESOLVED (v0.15.2)
+
+**Problem Found:** EventSystem.ts had TODO - fires only damaged funds, not buildings.  
+**Solution Implemented:** Complete BuildingHealthSystem (314 lines) with health tracking, damage sources, income penalties, and repair costs.  
+**Status:** ✅ COMPLETE - Events now have real, lasting consequences!
+
+---
+
+## 🚀 ORIGINAL STARTING POINT (ARCHIVED - January 30, 2025)
 
 **File:** `src/simulation/EvaluationSystem.ts` (NEW)
 

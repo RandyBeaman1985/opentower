@@ -75,27 +75,31 @@ export class EconomicSystem {
     for (const building of buildings) {
       // Collect income (only if building is active and has occupants)
       if (building.state === 'active') {
+        let baseIncome = 0;
+        
         // For offices, income depends on occupancy
         if (building.type === 'office') {
           const occupancyRatio = building.occupantIds.length / 6; // 6 max per office
-          const income = building.incomePerQuarter * occupancyRatio;
-          totalIncome += income;
+          baseIncome = building.incomePerQuarter * occupancyRatio;
         }
         // For food buildings, income depends on customer visits
         else if (building.type === 'fastFood') {
           const customerCount = this.foodCustomerCounts.get(building.id) || 0;
-          const income = customerCount * this.FASTFOOD_INCOME_PER_CUSTOMER;
-          totalIncome += income;
+          baseIncome = customerCount * this.FASTFOOD_INCOME_PER_CUSTOMER;
         }
         else if (building.type === 'restaurant') {
           const customerCount = this.foodCustomerCounts.get(building.id) || 0;
-          const income = customerCount * this.RESTAURANT_INCOME_PER_CUSTOMER;
-          totalIncome += income;
+          baseIncome = customerCount * this.RESTAURANT_INCOME_PER_CUSTOMER;
         }
         // Other buildings use base income
         else {
-          totalIncome += building.incomePerQuarter;
+          baseIncome = building.incomePerQuarter;
         }
+        
+        // 🆕 v0.15.2: Apply health multiplier (damaged buildings earn less)
+        const healthMultiplier = (building as any).healthMultiplier ?? 1.0;
+        const income = baseIncome * healthMultiplier;
+        totalIncome += income;
       }
       
       // Deduct maintenance

@@ -59,9 +59,14 @@ function getOcramSpritePath(buildingType: BuildingType, state: string): string |
   
   const variantName = config.variants[variantIndex];
   
-  // Build the full path based on the sprite location
-  // Most are in Rooms/Default/
-  return `/sprites/ocram/Rooms/Default/${variantName}.png`;
+  // Build the full path using the config's path property
+  // Path contains directory + prefix (e.g., 'Rooms/Default/office')
+  // Variant is the filename without extension (e.g., 'office-0-day-0')
+  // Extract directory from path (everything up to last slash)
+  const pathParts = config.path.split('/');
+  const directory = pathParts.slice(0, -1).join('/');
+  
+  return `/sprites/ocram/${directory}/${variantName}.png`;
 }
 
 export interface SpriteConfig {
@@ -271,11 +276,14 @@ export async function loadBuildingSprite(
   if (ocramPath) {
     try {
       const texture = await Texture.from(ocramPath);
+      // Set NEAREST scaling for crisp pixel art (no blurring)
+      texture.source.scaleMode = 'nearest';
       spriteCache.set(cacheKey, texture);
       console.log(`✨ Loaded Ocram sprite: ${ocramPath}`);
       return texture;
     } catch (e) {
       // Ocram sprite not found, continue to fallback
+      console.warn(`⚠️ Ocram sprite not found: ${ocramPath}`, e);
     }
   }
   
@@ -284,6 +292,7 @@ export async function loadBuildingSprite(
   
   try {
     const texture = await Texture.from(assetPath);
+    texture.source.scaleMode = 'nearest';
     spriteCache.set(cacheKey, texture);
     return texture;
   } catch (error) {

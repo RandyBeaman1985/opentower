@@ -110,7 +110,9 @@ describe("StarRatingSystem", () => {
 
   describe("Demotion", () => {
     beforeEach(() => {
-      // Start at 3 stars
+      // Promote to 2★ first
+      system.evaluate({ population: 100, satisfaction: 60, activeProblems: 0 });
+      // Then to 3★
       system.evaluate({ population: 300, satisfaction: 65, activeProblems: 0 });
     });
 
@@ -120,9 +122,10 @@ describe("StarRatingSystem", () => {
         demotionEvent = event;
       });
 
+      // Satisfaction drops → should demote to 2★ (meets 2★ but not 3★ requirements)
       system.evaluate({
         population: 300,
-        satisfaction: 50, // Below 65 required for 3 stars
+        satisfaction: 62, // Above 60 for 2★, but below 65 required for 3★
         activeProblems: 0,
       });
 

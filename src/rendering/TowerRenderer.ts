@@ -17,6 +17,7 @@ import { SimulationEffectsRenderer } from './SimulationEffectsRenderer';
 import { BuildingLightsRenderer } from './BuildingLightsRenderer';
 import { DayNightOverlay } from './DayNightOverlay';
 import { BuildingSprites } from './BuildingSprites';
+import { SkyRenderer } from './SkyRenderer';
 import type { Person } from '@/entities/Person';
 import type { ElevatorShaft } from '@/entities/ElevatorShaft';
 import type { TimeOfDayState } from '@simulation/TimeOfDaySystem';
@@ -73,6 +74,7 @@ export class TowerRenderer {
   private lightsAreOn: boolean = false;
   
   // Renderers
+  private skyRenderer: SkyRenderer;
   private peopleRenderer: PeopleRenderer;
   private elevatorRenderer: ElevatorRenderer;
   private simulationEffectsRenderer: SimulationEffectsRenderer;
@@ -117,14 +119,12 @@ export class TowerRenderer {
     this.backgroundLayer.addChild(this.groundGraphics);
     
     // Create renderers
+    this.skyRenderer = new SkyRenderer(this.skyLayer);
     this.peopleRenderer = new PeopleRenderer(this.peopleLayer);
     this.elevatorRenderer = new ElevatorRenderer(this.buildingLayer); // Elevators on building layer
     this.simulationEffectsRenderer = new SimulationEffectsRenderer(this.effectsLayer);
     this.buildingLightsRenderer = new BuildingLightsRenderer(this.effectsLayer);
     this.dayNightOverlay = new DayNightOverlay(this.effectsLayer, app.screen.width, app.screen.height);
-
-    // Initialize sky
-    this.drawSky();
 
     // Setup event listeners
     this.setupEventListeners();
@@ -205,7 +205,7 @@ export class TowerRenderer {
    */
   private handleResize(): void {
     this.camera.setViewport(this.app.screen.width, this.app.screen.height);
-    this.drawSky();
+    this.skyRenderer.resize(this.app.screen.width, this.app.screen.height);
   }
 
   /**

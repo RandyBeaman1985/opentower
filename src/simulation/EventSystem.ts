@@ -415,8 +415,18 @@ export class EventSystem {
       // Apply damage
       const building = tower.buildingsById[buildingId];
       if (building) {
-        // TODO: Apply actual building damage when health system exists
-        tower.funds -= fireData.damagePerTick;
+        // Apply building health damage (via healthSystem if available)
+        if ((tower as any).healthSystem) {
+          (tower as any).healthSystem.damageBuilding(
+            buildingId,
+            fireData.damagePerTick,
+            'fire',
+            currentTick
+          );
+        } else {
+          // Fallback: damage funds directly (old behavior)
+          tower.funds -= fireData.damagePerTick * 100;
+        }
       }
       
       // Check for spread
@@ -520,10 +530,28 @@ export class EventSystem {
    */
   private resolveBombThreat(tower: Tower, currentTick: number): void {
     if (this.bombThreatIsReal) {
-      // Real bomb - massive damage and cost
-      const damage = 500000;
+      // Real bomb - massive damage to random buildings
+      const damage = 250000; // Reduced funds damage since we now damage buildings too
       tower.funds -= damage;
-      console.log(`💥 BOMB WAS REAL! Massive damage.`);
+      
+      // Damage 3-5 random buildings (30-50% health loss each)
+      const buildings = Object.values(tower.buildingsById).filter(b => b && b.type !== 'lobby');
+      const buildingsToDamage = Math.min(buildings.length, 3 + Math.floor(Math.random() * 3));
+      
+      for (let i = 0; i < buildingsToDamage; i++) {
+        const building = buildings[Math.floor(Math.random() * buildings.length)];
+        if (building && (tower as any).healthSystem) {
+          const healthDamage = 30 + Math.random() * 20; // 30-50% damage
+          (tower as any).healthSystem.damageBuilding(
+            building.id,
+            healthDamage,
+            'bomb',
+            currentTick
+          );
+        }
+      }
+      
+      console.log(`💥 BOMB WAS REAL! ${buildingsToDamage} buildings damaged!`);
       console.log(`   Damage cost: $${damage.toLocaleString()}`);
     } else {
       // Hoax - just wasted time and minor cost
