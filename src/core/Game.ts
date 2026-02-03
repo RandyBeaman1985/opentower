@@ -32,6 +32,7 @@ import { ParticleEffect } from '@rendering/ParticleEffect';
 import { FloatingTextSystem } from '@rendering/FloatingText';
 import { GameFeelManager } from './GameFeelManager';
 import { GameHUD } from '@rendering/GameHUD';
+import { Person } from '@/entities/Person';
 
 export interface GameConfig {
   /** Width of the game canvas */
@@ -183,8 +184,70 @@ export class Game {
       this.timeSystem // 🆕 BUG-020 FIX: Pass timeSystem for game speed saving
     );
     
+    // 🆕 v0.12.0: Wire up resident system callbacks for spawning/despawning
+    this.residentSystem.setCallbacks(
+      (resident, tower) => this.spawnResident(resident, tower),
+      (personId) => this.despawnPerson(personId)
+    );
+    
     // Setup event listeners for game feel
     this.setupGameFeelEvents();
+  }
+
+  /**
+   * 🆕 v0.12.0: Spawn a resident person at lobby
+   * Called by ResidentSystem during evening commute
+   */
+  private spawnResident(resident: import('@simulation/ResidentSystem').Resident, tower: import('@/interfaces').Tower): import('@/entities/Person').Person | null {
+    // Find lobby building
+    const lobby = Object.values(tower.buildingsById).find(b => b && b.type === 'lobby');
+    if (!lobby) {
+      console.warn('⚠️ Cannot spawn resident: No lobby found!');
+      return null;
+    }
+
+    // Spawn at lobby center
+    const lobbyTile = lobby.position.startTile + Math.floor(lobby.width / 2);
+
+    // Create person entity
+    const person = new Person({
+      type: 'resident',
+      floor: lobby.position.floor,
+      tile: lobbyTile,
+      homeBuildingId: resident.condoId,
+      schedule: {
+        personType: 'resident',
+        events: [
+          { hour: 8, minute: 0, action: 'leave', weekdayOnly: true }, // Leave for work
+          { hour: 18, minute: 0, action: 'arrive', weekdayOnly: true }, // Return home
+        ],
+      },
+      name: `Resident-${resident.id.split('-')[1]}`,
+    });
+
+    // Add to population system
+    const added = this.populationSystem.addPerson(person);
+    
+    if (!added) {
+      console.warn('⚠️ Failed to add resident to population system');
+      return null;
+    }
+
+    console.log(`✨ Spawned resident ${person.name} at lobby (going to condo ${resident.condoId})`);
+    return person;
+  }
+
+  /**
+   * 🆕 v0.12.0: Despawn a person from the tower
+   * Called when residents leave for work or reach their destination
+   */
+  private despawnPerson(personId: string): void {
+    this.populationSystem.removePerson(personId);
+    
+    // Notify resident system that person was despawned
+    this.residentSystem.onPersonDespawned(personId);
+    
+    console.log(`👋 Despawned person ${personId}`);
   }
 
   /**
@@ -354,7 +417,8 @@ export class Game {
     this.hotelSystem.update(tower, clock, this.currentTick);
 
     // Update resident system (condo residents, work commutes, rent)
-    this.residentSystem.update(tower, peopleMap, clock.gameHour);
+    // 🆕 v0.12.0: Now includes gameDay for weekday/weekend detection
+    this.residentSystem.update(tower, peopleMap, clock.gameHour, clock.gameDay);
 
     // Update random events (VIP visitors, maintenance, etc.)
     this.randomEventSystem.update(tower, this.currentTick);
@@ -370,13 +434,12 @@ export class Game {
     const rentIncome = this.residentSystem.getQuarterlyRentIncome();
     this.economicSystem.update(tower, clock, this.currentTick, hotelIncome + rentIncome);
 
-    // Update star rating (every 60 ticks = 1 second)
-    if (this.currentTick % 60 === 0) {
+    // Quarterly updates (every 900 ticks = 90 game seconds = 1 game quarter-hour)
+    if (this.currentTick % 900 === 0) {
+      // Update star rating (quarterly checks like SimTower)
       this.updateStarRating();
-    }
-
-    // Process evaluation consequences (tenant departures, buybacks)
-    if (this.currentTick % 900 === 0) { // Every quarter
+      
+      // Process evaluation consequences (tenant departures, buybacks)
       this.processEvaluationConsequences();
     }
   }
@@ -423,7 +486,7 @@ export class Game {
 
   /**
    * Update star rating based on population, happiness, and profit
-   * Called once per second (every 60 ticks)
+   * Called quarterly (every 900 ticks) for performance + realistic progression
    */
   private updateStarRating(): void {
     // Calculate happiness (% of people with normal stress)

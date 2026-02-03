@@ -253,7 +253,13 @@ export class Person implements IPerson {
         break;
         
       case 'stairs':
-        // TODO: Stairs implementation
+        // Walk up/down stairs (instant floor change)
+        // Person walks to stairs, climbs them, continues on new floor
+        this.currentFloor = segment.endFloor;
+        this.targetTile = segment.endTile;
+        this.state = 'walking'; // Continue walking on new floor
+        this.moveProgress = 0;
+        // Move to next segment
         this.currentSegmentIndex++;
         this.startNextSegment();
         break;

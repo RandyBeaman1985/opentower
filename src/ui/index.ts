@@ -10,3 +10,4 @@ export { TutorialOverlay } from './TutorialOverlay';
 export { StarRatingNotification } from './StarRatingNotification';
 export { BuildingTooltip } from './BuildingTooltip';
 export { RandomEventNotification } from './RandomEventNotification';
+export { FinancialReportModal } from './FinancialReportModal';

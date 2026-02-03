@@ -11,6 +11,7 @@ import { StarRatingNotification } from '@/ui/StarRatingNotification';
 import { BuildingTooltip } from '@/ui/BuildingTooltip';
 import { RandomEventNotification } from '@/ui/RandomEventNotification';
 import { GameOverModal } from '@/ui/GameOverModal';
+import { FinancialReportModal } from '@/ui/FinancialReportModal';
 import { getEventBus } from '@core/EventBus';
 import { getSoundManager } from '@/audio/SoundManager';
 import { installPerformanceBenchmark } from '@/test/PerformanceBenchmark';
@@ -309,6 +310,10 @@ async function main() {
   // Add Tower Pulse widget
   const towerPulse = new TowerPulse();
   updateTowerPulse(game, towerPulse);
+
+  // Add Financial Report Modal
+  const financialReport = new FinancialReportModal();
+  addFinancialReportButton(game, financialReport);
 
   // Add Building Tooltip
   const buildingTooltip = new BuildingTooltip();
@@ -776,6 +781,68 @@ function addSaveLoadButtons(game: Game, menu: BuildingMenu) {
       loadButton.click();
     }
   });
+}
+
+/**
+ * Add financial report button and wire up updates
+ */
+function addFinancialReportButton(game: Game, financialReport: FinancialReportModal) {
+  const button = document.createElement('button');
+  button.textContent = '💰 Finances';
+  button.title = 'View Financial Report (F)';
+  button.style.cssText = `
+    position: fixed;
+    bottom: 220px;
+    left: 20px;
+    padding: 10px 15px;
+    background: #fbbf24;
+    color: #1a1a1a;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: monospace;
+    font-size: 14px;
+    font-weight: bold;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(251, 191, 36, 0.3);
+  `;
+  
+  button.addEventListener('click', () => {
+    financialReport.toggle();
+    
+    // Update with current data when opened
+    if (financialReport) {
+      const tower = game.getTowerManager().getTower();
+      financialReport.update(
+        tower,
+        game.getEconomicSystem(),
+        game.getHotelSystem(),
+        game.getResidentSystem(),
+        game.getOperatingCostSystem()
+      );
+    }
+  });
+  
+  button.addEventListener('mouseover', () => {
+    button.style.background = '#f59e0b';
+    button.style.transform = 'scale(1.05)';
+    button.style.transition = 'all 0.2s';
+  });
+  
+  button.addEventListener('mouseout', () => {
+    button.style.background = '#fbbf24';
+    button.style.transform = 'scale(1)';
+  });
+  
+  // Keyboard shortcut (F key)
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'f' && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      button.click();
+    }
+  });
+  
+  document.body.appendChild(button);
 }
 
 /**

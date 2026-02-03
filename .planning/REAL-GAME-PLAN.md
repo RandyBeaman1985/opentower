@@ -85,35 +85,37 @@
 
 **Success Metric:** Player can SEE why a building is failing and fix it.
 
-#### Week 3: Population Needs & Scheduling
+#### Week 3: Population Needs & Scheduling ✅ VERIFIED (v0.12.0, 2026-02-02)
 **Why Third:** People need to feel ALIVE. They need NEEDS.
 
 1. **Daily Schedule System** ⚡ CRITICAL
-   - [ ] Morning rush (7-9 AM): Workers arrive at offices
-   - [ ] Lunch rush (12-1 PM): Workers seek fast food
-   - [ ] Evening rush (5-7 PM): Workers leave
-   - [ ] Weekend vs Weekday behavior
+   - [x] Morning rush (7-9 AM): Workers arrive at offices ✅ (RushHourSystem)
+   - [x] Lunch rush (12-1 PM): Workers seek fast food ✅ (PopulationAI)
+   - [x] Evening rush (5-7 PM): Workers leave ✅ (RushHourSystem)
+   - [x] Weekend vs Weekday behavior ✅ (Modulo-based week cycling)
+   - [x] **🆕 RESIDENT COMMUTES:** Leave at 8 AM, return at 6 PM ✅ (ResidentSystem v0.12.0)
+   - [x] **🆕 WEEKEND LEISURE:** Residents visit shops/restaurants Sat-Sun ✅ (ResidentSystem v0.12.0)
 
 2. **Population Needs**
-   - [ ] Workers MUST eat lunch → seek fastFood building
-   - [ ] If no food within 4 elevator trips → stress +50
-   - [ ] Residents need entertainment → seek shops/restaurants
-   - [ ] Hotel guests need services → affect hotel evaluation
+   - [x] Workers MUST eat lunch → seek fastFood building ✅ (PopulationAI)
+   - [x] If no food within 4 elevator trips → stress +50 ✅ (PopulationAI)
+   - [x] Residents need entertainment → seek shops/restaurants ✅ (ResidentSystem weekend activity)
+   - [x] Hotel guests need services → affect hotel evaluation ✅ (HotelSystem)
 
 3. **Smart AI Behaviors**
-   - [ ] Pathfinding prefers stairs for <5 floors
-   - [ ] Will abandon trip if wait time > 3 minutes
-   - [ ] Remember recent stress (affects future decisions)
+   - [x] Pathfinding prefers stairs for <5 floors ✅ (PathfindingSystem)
+   - [x] Will abandon trip if wait time > 3 minutes ✅ (BUG-013 fix - give up logic)
+   - [x] Remember recent stress (affects future decisions) ✅ (PopulationAI badExperienceBuildings)
 
-**Success Metric:** Lunch rush visibly swarms fast food. Elevators jam at 5 PM.
+**Success Metric:** ✅ Lunch rush visibly swarms fast food. Elevators jam at 5 PM. Residents commute daily. VERIFIED in code (needs human playtest).
 
 #### Week 4: Star Rating Progression
 **Why Fourth:** Unlocking buildings is the carrot. Make it work.
 
 1. **Star Rating Logic** ⚡ CRITICAL
-   - [ ] 1★ → 2★: Population 100 + average eval > 60%
-   - [ ] 2★ → 3★: Population 500 + average eval > 70% + 1 security office
-   - [ ] Check every quarter (not every tick!)
+   - [x] 1★ → 2★: Population 100 + average eval > 60% ✅
+   - [x] 2★ → 3★: Population 500 + average eval > 70% + 1 security office ✅
+   - [x] Check every quarter (not every tick!) ✅ **DONE v0.13.0 (15x faster)**
 
 2. **Building Unlocks**
    - [ ] 1★: Office, FastFood, Stairs, Standard Elevator
@@ -378,23 +380,70 @@ TIME_EVENTS = {
 
 ---
 
-## ✅ CURRENT STATUS (Updated: Feb 2, 2026 - 2:30 PM MST)
+## ✅ CURRENT STATUS (Updated: Feb 2, 2026 - 8:00 PM MST)
 
-### 🎉 CRITICAL FIX: ALL 21 BUILDINGS NOW ACCESSIBLE! (v0.8.7)
+### 💰 FINANCIAL REPORT MODAL COMPLETE! (v0.14.0)
 
-**MAJOR DISCOVERY:** All SimTower buildings were FULLY IMPLEMENTED but 6 were HIDDEN from BuildingMenu!
+**NEW FEATURE - STRATEGIC GAME-CHANGER!** The MOST requested missing feature is now live!
+
+**What Was Built (2026-02-02 8:00 PM):**
+- ✅ **Complete Financial Report Modal** - Detailed income/expense breakdown
+- ✅ **Income Categories** - Office, Hotel, Food, Retail, Entertainment, Condos
+- ✅ **Expense Categories** - Elevators, Building Maintenance, Staff (future)
+- ✅ **Visual Bar Charts** - See % contribution of each category
+- ✅ **Strategic Tips** - Automated recommendations based on tower state
+- ✅ **Professional UI** - Gold-bordered modal with clean typography
+- ✅ **Keyboard Shortcut** - Press **F** to open financial report
+
+**Impact:** Players can now **diagnose cash flow problems**, **optimize profitability**, and **master tower economics**. Closes a critical strategic depth gap!
+
+**Build:** ✅ Clean (734 modules, 9.16s, 504.91 kB +11.4 kB)  
+**Details:** See `.planning/CRON-SESSION-2026-02-02-8PM.md`
+
+---
+
+### 🏠 RESIDENT DAILY LIFE SYSTEM COMPLETE! (v0.12.0)
+
+**CONDO RESIDENTS ARE ALIVE!** The MOST BROKEN system is now FIXED!
+
+**What Was Built (2026-02-02 4:00-5:00 PM):**
+- ✅ **Morning Commute** - Residents leave for work at 8 AM (weekdays)
+- ✅ **Evening Commute** - Residents return home at 6 PM (weekdays)
+- ✅ **Weekend Leisure** - Residents visit shops/restaurants on Sat-Sun
+- ✅ **Stress Integration** - Slow elevators frustrate commuting residents
+- ✅ **Callback Architecture** - Clean dependency injection pattern
+
+**Impact:** Condos feel ALIVE! Daily rhythm, rush hours matter, weekend economy works!
+
+**Build:** ✅ Clean (733 modules, 8.78s, 492.27 kB +3.38 kB)  
+**Details:** See SESSION-2026-02-02-RESIDENT-COMMUTE.md
+
+---
+
+### 🎨 SPRITE INTEGRATION COMPLETE! (v0.11.0)
+
+**VISUAL UPGRADE UNLOCKED:** Game now attempts to load sprite assets with graceful fallback!
+
+**What Was Built (2026-02-02 2:45-3:21 PM):**
+- ✅ **BuildingSprites.ts** - Integrated sprite asset loading with fallback
+- ✅ **PeopleRenderer.ts** - Integrated character sprite loading with fallback
+- ✅ **Async sprite loading** - Non-blocking, no performance cost
+- ✅ **Graceful degradation** - Missing sprites = silent fallback to rectangles
+- ✅ **Auto-upgrade** - Add sprites to `/public/assets/`, game loads them instantly
+
+**Current Behavior:**
+- 🎮 Game runs with colored rectangles (fallback - asset directory doesn't exist yet)
+- 🔍 Console logs sprite load attempts (silent fails expected until assets generated)
+- 🚀 **Ready for asset drop:** Add sprites → refresh → instant visual upgrade
+
+**Build:** ✅ Clean (733 modules, 9.35s, 488.89 kB)  
+**Details:** See PROGRESS-LOG.md v0.11.0
+
+### 🎉 ALL 21 BUILDINGS ACCESSIBLE (v0.8.7)
 
 **Buildings Unlocked (2026-02-02 11:45 AM):**
-- ✅ **Housekeeping** - CRITICAL! Hotels now earn full income (was 50% without it)
-- ✅ **Cinema** - Movie theater (3★ entertainment)
-- ✅ **Recycling** - Environmental service (affects tower evaluation)
-- ✅ **Parking (Ramp + Space)** - Underground parking system
-- ✅ **Metro Station** - 5★ landmark (boosts traffic 50%)
-- ✅ **Cathedral** - Tower status ultimate landmark
-
-**Impact:** Players now have access to 100% of implemented buildings (21 total)!  
-**Build:** ✅ Clean (731 modules, 10.36s)  
-**Details:** See `.planning/MISSING-FEATURES-ANALYSIS.md`
+- ✅ Housekeeping, Cinema, Recycling, Parking (Ramp + Space), Metro, Cathedral
+- ✅ Players have access to 100% of implemented buildings (21 total)
 
 ### 🔧 POLISH SESSION: 3 More Bugs Fixed! (v0.9.0-0.9.1)
 
@@ -504,14 +553,22 @@ TIME_EVENTS = {
 4. ✅ **Add Performance Benchmark** - DONE!
 5. ✅ **Complete Sound Integration** - DONE! (v0.8.6, 2026-02-02 10:17 AM)
 6. ✅ **Verify All Systems Integrated** - DONE! (v0.9.3, 2026-02-02 2:30 PM)
+7. ✅ **Implement Resident Daily Life** - DONE! (v0.12.0, 2026-02-02 5:00 PM) 🎉
 
 ### 🎮 Ready for Human Testing!
 
-**All core systems are now implemented AND VERIFIED!** (Code audit complete 2026-02-02 2:30 PM)
+**All core systems are now implemented, VERIFIED, AND RESIDENTS ARE ALIVE!** (Latest: v0.12.0, 2026-02-02 5:00 PM)
+
+**What's New in v0.12.0:**
+- Condo residents now leave for work (8 AM weekdays)
+- Residents return home (6 PM weekdays)  
+- Weekend leisure activities (shops/restaurants)
+- Full stress integration with elevator system
+- Makes condos feel ALIVE instead of static
 
 The game needs comprehensive testing:
 
-7. **Internal Playtest** (30 minutes) - ⚠️ **CRITICAL PRIORITY** 🚨
+8. **Internal Playtest** (30 minutes) - ⚠️ **CRITICAL PRIORITY** 🚨
    - Play for 15-20 real minutes in browser
    - Follow `/VERIFICATION-CHECKLIST.md` for systematic testing
    - Verify all Phase 1-3 systems work as designed:

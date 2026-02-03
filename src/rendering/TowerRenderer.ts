@@ -352,7 +352,11 @@ export class TowerRenderer {
   /**
    * Render a single building - using enhanced BuildingSprites system
    */
-  renderBuilding(building: Building, showLights: boolean = false): PIXI.Container {
+  renderBuilding(
+    building: Building, 
+    showLights: boolean = false, 
+    tower?: Tower
+  ): PIXI.Container {
     // Check if we already have a sprite for this building
     let container = this.buildingSprites.get(building.id);
 
@@ -367,8 +371,17 @@ export class TowerRenderer {
       wrapper.x = x;
       wrapper.y = y;
 
+      // Get current game time from tower clock
+      const currentTime = tower ? {
+        hour: tower.clock.gameHour,
+        minute: tower.clock.gameMinute
+      } : undefined;
+
       // Use BuildingSprites to create the enhanced visual
-      const buildingSprite = BuildingSprites.createBuildingSprite(building, { showLights });
+      const buildingSprite = BuildingSprites.createBuildingSprite(building, { 
+        showLights, 
+        currentTime 
+      });
       wrapper.addChild(buildingSprite);
 
       // Store in cache
@@ -424,7 +437,7 @@ export class TowerRenderer {
       const height = building.height * RENDER_CONSTANTS.FLOOR_HEIGHT;
 
       if (this.camera.isVisible(x, y, width, height)) {
-        this.renderBuilding(building, showLights);
+        this.renderBuilding(building, showLights, tower);
       } else {
         // Remove if not visible (save memory)
         this.removeBuilding(building.id);

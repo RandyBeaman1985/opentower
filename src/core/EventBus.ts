@@ -35,56 +35,81 @@ interface SubscriptionEntry {
  */
 export class EventBus implements IEventBus {
   private nextSubscriptionId = 0;
-  private listeners: Map<string, SubscriptionEntry[]> = new Map();
-  private anyListeners: { eventTypes: Set<string>; callback: EventCallback; id: number }[] = [];
+  private listeners: Map<string, Map<number, SubscriptionEntry>> = new Map();
+  private anyListeners: Map<number, { eventTypes: Set<string>; callback: EventCallback }> = new Map();
   private phasedQueues: Map<GamePhase, AppEvent[]> = new Map();
+  
+  /** Track if we're currently emitting to prevent concurrent modification issues */
+  private isEmitting = false;
+  private pendingUnsubscribes: Set<{ type: 'specific' | 'any'; eventType?: string; id: number }> = new Set();
 
   /**
    * Subscribe to a specific event type
+   * @param eventType - The event type to subscribe to
+   * @param callback - Function to call when event is emitted
+   * @returns Subscription object with unsubscribe method
    */
   on<T extends AppEvent>(eventType: T['type'], callback: (event: T) => void): Subscription {
     const id = this.nextSubscriptionId++;
 
     if (!this.listeners.has(eventType)) {
-      this.listeners.set(eventType, []);
+      this.listeners.set(eventType, new Map());
     }
 
-    this.listeners.get(eventType)!.push({
+    const typeListeners = this.listeners.get(eventType)!;
+    typeListeners.set(id, {
       callback: callback as EventCallback,
       id,
     });
 
     return {
       unsubscribe: () => {
-        const entries = this.listeners.get(eventType);
-        if (entries) {
-          const index = entries.findIndex((e) => e.id === id);
-          if (index !== -1) {
-            entries.splice(index, 1);
-          }
+        if (this.isEmitting) {
+          // Defer unsubscribe to avoid concurrent modification
+          this.pendingUnsubscribes.add({ type: 'specific', eventType, id });
+          return;
         }
+        this.removeListener(eventType, id);
       },
     };
   }
 
   /**
+   * Remove a specific listener (internal helper)
+   */
+  private removeListener(eventType: string, id: number): void {
+    const typeListeners = this.listeners.get(eventType);
+    if (typeListeners) {
+      typeListeners.delete(id);
+      // Clean up empty maps
+      if (typeListeners.size === 0) {
+        this.listeners.delete(eventType);
+      }
+    }
+  }
+
+  /**
    * Subscribe to multiple event types
+   * @param eventTypes - Array of event types to subscribe to
+   * @param callback - Function to call when any matching event is emitted
+   * @returns Subscription object with unsubscribe method
    */
   onAny(eventTypes: AppEvent['type'][], callback: (event: AppEvent) => void): Subscription {
     const id = this.nextSubscriptionId++;
 
-    this.anyListeners.push({
+    this.anyListeners.set(id, {
       eventTypes: new Set(eventTypes),
       callback,
-      id,
     });
 
     return {
       unsubscribe: () => {
-        const index = this.anyListeners.findIndex((e) => e.id === id);
-        if (index !== -1) {
-          this.anyListeners.splice(index, 1);
+        if (this.isEmitting) {
+          // Defer unsubscribe to avoid concurrent modification
+          this.pendingUnsubscribes.add({ type: 'any', id });
+          return;
         }
+        this.anyListeners.delete(id);
       },
     };
   }
@@ -92,28 +117,47 @@ export class EventBus implements IEventBus {
   /**
    * Emit event synchronously - processed immediately
    * Use for events that must complete before next frame
+   * @param event - The event to emit
    */
   emitSync<T extends AppEvent>(event: T): void {
-    // Notify specific listeners
-    const entries = this.listeners.get(event.type);
-    if (entries) {
-      for (const entry of entries) {
-        try {
-          entry.callback(event);
-        } catch (error) {
-          console.error(`Error in event handler for ${event.type}:`, error);
+    this.isEmitting = true;
+    
+    try {
+      // Notify specific listeners
+      const typeListeners = this.listeners.get(event.type);
+      if (typeListeners) {
+        for (const entry of typeListeners.values()) {
+          try {
+            entry.callback(event);
+          } catch (error) {
+            console.error(`Error in event handler for ${event.type}:`, error);
+          }
         }
       }
-    }
 
-    // Notify any listeners
-    for (const listener of this.anyListeners) {
-      if (listener.eventTypes.has(event.type)) {
-        try {
-          listener.callback(event);
-        } catch (error) {
-          console.error(`Error in any-listener for ${event.type}:`, error);
+      // Notify any listeners
+      for (const listener of this.anyListeners.values()) {
+        if (listener.eventTypes.has(event.type)) {
+          try {
+            listener.callback(event);
+          } catch (error) {
+            console.error(`Error in any-listener for ${event.type}:`, error);
+          }
         }
+      }
+    } finally {
+      this.isEmitting = false;
+      
+      // Process any deferred unsubscribes
+      if (this.pendingUnsubscribes.size > 0) {
+        for (const pending of this.pendingUnsubscribes) {
+          if (pending.type === 'specific' && pending.eventType) {
+            this.removeListener(pending.eventType, pending.id);
+          } else if (pending.type === 'any') {
+            this.anyListeners.delete(pending.id);
+          }
+        }
+        this.pendingUnsubscribes.clear();
       }
     }
   }
@@ -162,27 +206,49 @@ export class EventBus implements IEventBus {
   }
 
   /**
-   * Clear all subscriptions
+   * Clear all subscriptions and queued events
    */
   clear(): void {
     this.listeners.clear();
-    this.anyListeners.length = 0;
+    this.anyListeners.clear();
     this.phasedQueues.clear();
+    this.pendingUnsubscribes.clear();
+    this.isEmitting = false;
+  }
+
+  /**
+   * Remove all listeners for a specific event type
+   * @param eventType - The event type to clear listeners for
+   */
+  clearEventType(eventType: string): void {
+    this.listeners.delete(eventType);
   }
 
   /**
    * Get count of listeners for debugging
+   * @param eventType - Optional event type to count listeners for
+   * @returns Number of listeners
    */
   getListenerCount(eventType?: string): number {
     if (eventType) {
-      return this.listeners.get(eventType)?.length ?? 0;
+      return this.listeners.get(eventType)?.size ?? 0;
     }
 
     let total = 0;
-    for (const entries of this.listeners.values()) {
-      total += entries.length;
+    for (const typeListeners of this.listeners.values()) {
+      total += typeListeners.size;
     }
-    return total + this.anyListeners.length;
+    return total + this.anyListeners.size;
+  }
+
+  /**
+   * Check if there are any listeners for an event type
+   * @param eventType - The event type to check
+   * @returns True if there are listeners for this event type
+   */
+  hasListeners(eventType: string): boolean {
+    const typeListeners = this.listeners.get(eventType);
+    return (typeListeners?.size ?? 0) > 0;
   }
 }
 

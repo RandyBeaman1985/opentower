@@ -4,24 +4,36 @@
  * Makes buildings look professional and SimTower-like instead of colored rectangles.
  * Each building type has custom rendering with proper visual details.
  * 
+ * v0.11.0: Now supports real sprite assets with fallback to procedural rendering
+ * 
  * @module rendering/BuildingSprites
  */
 
 import * as PIXI from 'pixi.js';
 import type { Building } from '@/interfaces';
+import { BUILDING_CONFIGS } from '@/interfaces';
 import { RENDER_CONSTANTS } from './TowerRenderer';
+import { 
+  createBuildingSprite as createSpriteAsset, 
+  getBuildingState 
+} from './sprites/BuildingSprites';
 
 export interface BuildingRenderOptions {
   showLights: boolean;
   variant?: number; // For visual variety within same building type
+  currentTime?: { hour: number; minute: number }; // Current game time for sprite selection
 }
 
 /**
  * Enhanced building sprite renderer
  */
 export class BuildingSprites {
+  private static spriteLoadAttempts: Set<string> = new Set();
+  
   /**
    * Create a visual container for any building type
+   * 
+   * v0.11.0: Now attempts to load real sprite assets first, falls back to rectangles
    */
   static createBuildingSprite(
     building: Building,
@@ -34,70 +46,135 @@ export class BuildingSprites {
     // Get variant for visual variety (based on building ID hash)
     const variant = options.variant ?? this.getVariant(building.id);
 
-    // Render based on building type
+    // Try to load real sprite asset (v0.11.0)
+    const spriteKey = `${building.type}-${building.id}`;
+    if (!this.spriteLoadAttempts.has(spriteKey)) {
+      this.spriteLoadAttempts.add(spriteKey);
+      
+      // Attempt async sprite load
+      this.tryLoadSpriteAsset(building, container, options).catch(() => {
+        // Silently fail - we'll use fallback rendering below
+      });
+    }
+    
+    // Render fallback (procedural rectangles) - removed when sprite loads
+    const fallbackContainer = new PIXI.Container();
+    fallbackContainer.name = 'fallback-rendering';
+    container.addChild(fallbackContainer);
+
+    // Render based on building type (fallback procedural rendering)
     switch (building.type) {
       case 'lobby':
-        this.renderLobby(container, width, height, options, variant);
+        this.renderLobby(fallbackContainer, width, height, options, variant);
         break;
       case 'office':
-        this.renderOffice(container, width, height, options, variant);
+        this.renderOffice(fallbackContainer, width, height, options, variant);
         break;
       case 'condo':
-        this.renderCondo(container, width, height, options, variant);
+        this.renderCondo(fallbackContainer, width, height, options, variant);
         break;
       case 'fastFood':
-        this.renderFastFood(container, width, height, options, variant);
+        this.renderFastFood(fallbackContainer, width, height, options, variant);
         break;
       case 'restaurant':
-        this.renderRestaurant(container, width, height, options, variant);
+        this.renderRestaurant(fallbackContainer, width, height, options, variant);
         break;
       case 'shop':
-        this.renderShop(container, width, height, options, variant);
+        this.renderShop(fallbackContainer, width, height, options, variant);
         break;
       case 'hotelSingle':
       case 'hotelTwin':
       case 'hotelSuite':
-        this.renderHotel(container, width, height, options, variant, building.type);
+        this.renderHotel(fallbackContainer, width, height, options, variant, building.type);
         break;
       case 'partyHall':
-        this.renderPartyHall(container, width, height, options, variant);
+        this.renderPartyHall(fallbackContainer, width, height, options, variant);
         break;
       case 'cinema':
-        this.renderCinema(container, width, height, options, variant);
+        this.renderCinema(fallbackContainer, width, height, options, variant);
         break;
       case 'stairs':
-        this.renderStairs(container, width, height, options, variant);
+        this.renderStairs(fallbackContainer, width, height, options, variant);
         break;
       case 'escalator':
-        this.renderEscalator(container, width, height, options, variant);
+        this.renderEscalator(fallbackContainer, width, height, options, variant);
         break;
       case 'parkingRamp':
       case 'parkingSpace':
-        this.renderParking(container, width, height, options, variant, building.type);
+        this.renderParking(fallbackContainer, width, height, options, variant, building.type);
         break;
       case 'housekeeping':
-        this.renderHousekeeping(container, width, height, options, variant);
+        this.renderHousekeeping(fallbackContainer, width, height, options, variant);
         break;
       case 'security':
-        this.renderSecurity(container, width, height, options, variant);
+        this.renderSecurity(fallbackContainer, width, height, options, variant);
         break;
       case 'medical':
-        this.renderMedical(container, width, height, options, variant);
+        this.renderMedical(fallbackContainer, width, height, options, variant);
         break;
       case 'recycling':
-        this.renderRecycling(container, width, height, options, variant);
+        this.renderRecycling(fallbackContainer, width, height, options, variant);
         break;
       case 'metro':
-        this.renderMetro(container, width, height, options, variant);
+        this.renderMetro(fallbackContainer, width, height, options, variant);
         break;
       case 'cathedral':
-        this.renderCathedral(container, width, height, options, variant);
+        this.renderCathedral(fallbackContainer, width, height, options, variant);
         break;
       default:
-        this.renderDefault(container, width, height, options);
+        this.renderDefault(fallbackContainer, width, height, options);
     }
 
     return container;
+  }
+
+  /**
+   * Try to load real sprite asset (v0.11.0)
+   * When successful, removes fallback rendering and adds sprite
+   */
+  private static async tryLoadSpriteAsset(
+    building: Building,
+    container: PIXI.Container,
+    options: BuildingRenderOptions
+  ): Promise<void> {
+    try {
+      // Get capacity from BUILDING_CONFIGS
+      const config = BUILDING_CONFIGS[building.type];
+      if (!config) {
+        throw new Error(`No config for building type: ${building.type}`);
+      }
+      
+      // Calculate state for sprite selection
+      const occupancy = building.occupantIds?.length ?? 0;
+      const capacity = config.capacity;
+      const currentTime = options.currentTime ?? { hour: 12, minute: 0 }; // Default to noon if not provided
+      
+      const state = getBuildingState(
+        building.type,
+        occupancy,
+        capacity,
+        currentTime
+      );
+
+      // Attempt to load sprite (only takes 2 args: type and optional state)
+      const sprite = await createSpriteAsset(building.type, state);
+
+      // Success! Remove fallback rendering
+      const fallback = container.getChildByName('fallback-rendering');
+      if (fallback) {
+        container.removeChild(fallback);
+        fallback.destroy();
+      }
+
+      // Add sprite
+      sprite.name = 'sprite-asset';
+      container.addChild(sprite);
+      
+      console.log(`✨ Loaded sprite for ${building.type} (${state})`);
+    } catch (error) {
+      // Sprite loading failed (asset doesn't exist) - silently keep fallback
+      // This is EXPECTED until sprite assets are generated
+    }
   }
 
   /**

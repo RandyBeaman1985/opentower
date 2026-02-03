@@ -5,12 +5,18 @@
  * Black = normal, Pink = stressed, Red = critical.
  * Enhanced with queue visualization and wait indicators.
  * 
+ * v0.11.0: Now supports real sprite assets with fallback to procedural rendering
+ * 
  * @module rendering/PeopleRenderer
  */
 
 import * as PIXI from 'pixi.js';
 import { Person } from '@/entities/Person';
 import { RENDER_CONSTANTS } from './TowerRenderer';
+import { 
+  createPersonSprite, 
+  updatePersonSprite 
+} from './sprites/PeopleSprites';
 
 export class PeopleRenderer {
   private container: PIXI.Container;
@@ -19,6 +25,7 @@ export class PeopleRenderer {
   private queuePositions: Map<string, { queueIndex: number; queueSize: number }> = new Map();
   private previousStates: Map<string, string> = new Map(); // Track state changes for animations
   private stateChangeTimes: Map<string, number> = new Map(); // Track when state changed
+  private spriteLoadAttempts: Set<string> = new Set(); // Track which people we've tried to load sprites for
   
   constructor(container: PIXI.Container) {
     this.container = container;
@@ -98,8 +105,36 @@ export class PeopleRenderer {
       sprite = new PIXI.Container();
       this.container.addChild(sprite);
       this.sprites.set(person.id, sprite);
+      
+      // Try to load real sprite asset (v0.11.0)
+      if (!this.spriteLoadAttempts.has(person.id)) {
+        this.spriteLoadAttempts.add(person.id);
+        this.tryLoadPersonSprite(person, sprite).catch(() => {
+          // Silently fail - fallback rendering will be used
+        });
+      }
     }
     
+    // Check if we have a sprite asset loaded
+    const spriteAsset = sprite.getChildByName('sprite-asset');
+    if (spriteAsset) {
+      // Update existing sprite asset
+      const direction = person.state === 'walking' ? 
+        (person.currentTile > (person.destinationBuildingId ? 0 : person.currentTile) ? 'left' : 'right') : 
+        'right';
+      
+      updatePersonSprite(spriteAsset as PIXI.AnimatedSprite, person, direction).catch(() => {
+        // If update fails, remove sprite and fall back to procedural
+        sprite?.removeChild(spriteAsset);
+        spriteAsset.destroy();
+      });
+      
+      // Position sprite (common for both sprite and fallback)
+      this.positionPersonSprite(person, sprite);
+      return;
+    }
+    
+    // FALLBACK: Procedural rendering (when sprite assets don't exist)
     // Clear and rebuild sprite
     sprite.removeChildren();
     
@@ -108,6 +143,7 @@ export class PeopleRenderer {
     
     // Create person graphics with better sprite design
     const graphics = new PIXI.Graphics();
+    graphics.name = 'fallback-rendering';
     
     // Draw person with body and head
     const personSize = 4; // body radius
@@ -169,6 +205,14 @@ export class PeopleRenderer {
     
     sprite.addChild(graphics);
     
+    // Track state changes and apply positioning (common for fallback rendering)
+    this.positionPersonSprite(person, sprite);
+  }
+  
+  /**
+   * Position person sprite (common for both sprite assets and fallback rendering)
+   */
+  private positionPersonSprite(person: Person, sprite: PIXI.Container): void {
     // Track state changes for animations
     const prevState = this.previousStates.get(person.id);
     if (prevState !== person.state) {
@@ -229,6 +273,36 @@ export class PeopleRenderer {
       sprite.scale.x = person.direction === 'left' ? -1 : 1;
     } else {
       sprite.scale.x = 1; // Reset scale when not walking
+    }
+  }
+  
+  /**
+   * Try to load real person sprite (v0.11.0)
+   * When successful, removes fallback rendering and adds animated sprite
+   */
+  private async tryLoadPersonSprite(person: Person, container: PIXI.Container): Promise<void> {
+    try {
+      const direction = person.state === 'walking' ? 
+        (person.currentTile > 0 ? 'left' : 'right') : 
+        'right';
+      
+      const sprite = await createPersonSprite(person, direction);
+      
+      // Success! Remove fallback rendering
+      const fallback = container.getChildByName('fallback-rendering');
+      if (fallback) {
+        container.removeChild(fallback);
+        fallback.destroy();
+      }
+      
+      // Add sprite asset
+      sprite.name = 'sprite-asset';
+      container.addChild(sprite);
+      
+      console.log(`✨ Loaded sprite for person ${person.id} (stress: ${person.stress})`);
+    } catch (error) {
+      // Sprite loading failed (assets don't exist) - silently keep fallback
+      // This is EXPECTED until sprite assets are generated
     }
   }
   

@@ -13,6 +13,47 @@
 
 import type { GameClock, GameSpeed } from '@/interfaces';
 
+/**
+ * OpenTower Design System Tokens
+ * Retro-futuristic 90s management sim aesthetic
+ */
+const OT_TOKENS = {
+  // Colors
+  primary: '#2C5282',       // Corporate blue
+  secondary: '#4A5568',     // Steel gray  
+  accent: '#D69E2E',        // Gold
+  success: '#38A169',       // Green
+  warning: '#DD6B20',       // Orange
+  danger: '#E53E3E',        // Red
+  info: '#3182CE',          // Blue
+  
+  // Surfaces
+  bgPrimary: '#1A202C',
+  bgSecondary: '#2D3748',
+  bgElevated: '#4A5568',
+  
+  // Text
+  textPrimary: '#F7FAFC',
+  textSecondary: '#A0AEC0',
+  textMuted: '#718096',
+  
+  // Effects
+  glowGold: '0 0 12px rgba(214, 158, 46, 0.5)',
+  glowGreen: '0 0 12px rgba(56, 161, 105, 0.5)',
+  glowRed: '0 0 12px rgba(229, 62, 62, 0.5)',
+  
+  // Animation
+  easeOut: 'cubic-bezier(0.22, 1, 0.36, 1)',
+  easeInOut: 'cubic-bezier(0.65, 0, 0.35, 1)',
+  durationFast: '150ms',
+  durationNormal: '300ms',
+  
+  // Fonts
+  fontDisplay: "'VT323', 'Courier New', monospace",
+  fontBody: "'Inter', -apple-system, system-ui, sans-serif",
+  fontMono: "'JetBrains Mono', 'Courier New', monospace",
+};
+
 export interface TopBarData {
   funds: number;
   population: number;
@@ -45,6 +86,9 @@ export class TopBar {
   };
 
   constructor() {
+    // Inject keyframe animations
+    this.injectAnimations();
+    
     this.container = document.createElement('div');
     this.container.id = 'top-bar';
     this.applyStyles();
@@ -70,6 +114,48 @@ export class TopBar {
     this.container.appendChild(speedControls);
     
     document.body.appendChild(this.container);
+  }
+
+  private injectAnimations(): void {
+    if (document.getElementById('ot-topbar-animations')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'ot-topbar-animations';
+    style.textContent = `
+      @keyframes pulse-danger {
+        0%, 100% { 
+          opacity: 1; 
+          transform: scale(1);
+        }
+        50% { 
+          opacity: 0.7; 
+          transform: scale(1.05);
+        }
+      }
+      
+      @keyframes funds-up {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.15); }
+        100% { transform: scale(1); }
+      }
+      
+      @keyframes funds-down {
+        0% { transform: scale(1); }
+        25% { transform: scale(0.9) translateX(-2px); }
+        50% { transform: scale(0.9) translateX(2px); }
+        75% { transform: scale(0.9) translateX(-2px); }
+        100% { transform: scale(1); }
+      }
+      
+      @keyframes star-earned {
+        0% { transform: scale(1) rotate(0deg); }
+        25% { transform: scale(1.3) rotate(-10deg); }
+        50% { transform: scale(1.3) rotate(10deg); }
+        75% { transform: scale(1.3) rotate(-5deg); }
+        100% { transform: scale(1) rotate(0deg); }
+      }
+    `;
+    document.head.appendChild(style);
   }
 
   private applyStyles(): void {
@@ -315,24 +401,59 @@ export class TopBar {
     const oldFunds = this.data.funds;
     this.data.funds = funds;
     
-    // Color flash on change with better visuals
-    if (funds > oldFunds) {
-      this.fundsDisplay.style.color = '#4CAF50'; // Green flash
-      this.fundsDisplay.style.transform = 'scale(1.1)';
-      this.fundsDisplay.style.filter = 'drop-shadow(0 0 12px rgba(76,175,80,0.6))';
-    } else if (funds < oldFunds) {
-      this.fundsDisplay.style.color = '#EF5350'; // Red flash
-      this.fundsDisplay.style.transform = 'scale(0.95)';
-      this.fundsDisplay.style.filter = 'drop-shadow(0 0 12px rgba(239,83,80,0.6))';
+    // Determine base state based on funds level
+    const isLowFunds = funds < 50000;
+    const isNegative = funds < 0;
+    const isCritical = funds < -100000;
+    
+    // Base colors based on financial health
+    let baseColor = OT_TOKENS.accent; // Gold for healthy
+    let baseGlow = OT_TOKENS.glowGold;
+    let icon = '💰';
+    
+    if (isCritical) {
+      baseColor = OT_TOKENS.danger;
+      baseGlow = OT_TOKENS.glowRed;
+      icon = '🚨';
+    } else if (isNegative) {
+      baseColor = OT_TOKENS.warning;
+      baseGlow = '0 0 12px rgba(221, 107, 32, 0.5)';
+      icon = '⚠️';
+    } else if (isLowFunds) {
+      baseColor = OT_TOKENS.warning;
+      icon = '💸';
     }
     
-    this.fundsDisplay.innerHTML = `<span style="font-size: 24px;">💰</span><span style="color: inherit; font-family: 'Courier New', monospace;">$${funds.toLocaleString()}</span>`;
+    // Color flash on change with better visuals
+    if (funds > oldFunds) {
+      this.fundsDisplay.style.color = OT_TOKENS.success;
+      this.fundsDisplay.style.transform = 'scale(1.1)';
+      this.fundsDisplay.style.filter = `drop-shadow(${OT_TOKENS.glowGreen})`;
+    } else if (funds < oldFunds) {
+      this.fundsDisplay.style.color = OT_TOKENS.danger;
+      this.fundsDisplay.style.transform = 'scale(0.95)';
+      this.fundsDisplay.style.filter = `drop-shadow(${OT_TOKENS.glowRed})`;
+    }
+    
+    // Format with negative handling
+    const formattedFunds = funds < 0 
+      ? `-$${Math.abs(funds).toLocaleString()}`
+      : `$${funds.toLocaleString()}`;
+    
+    this.fundsDisplay.innerHTML = `<span style="font-size: 24px;">${icon}</span><span style="color: inherit; font-family: ${OT_TOKENS.fontMono};">${formattedFunds}</span>`;
+    
+    // Add pulsing animation for critical funds
+    if (isCritical) {
+      this.fundsDisplay.style.animation = 'pulse-danger 1s ease-in-out infinite';
+    } else {
+      this.fundsDisplay.style.animation = 'none';
+    }
     
     // Reset color after animation
     setTimeout(() => {
-      this.fundsDisplay.style.color = '#FFD700';
+      this.fundsDisplay.style.color = baseColor;
       this.fundsDisplay.style.transform = 'scale(1)';
-      this.fundsDisplay.style.filter = 'drop-shadow(0 0 8px rgba(255,215,0,0.4))';
+      this.fundsDisplay.style.filter = `drop-shadow(${baseGlow})`;
     }, 400);
   }
 

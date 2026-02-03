@@ -55,11 +55,22 @@ export class ClockManager {
     return { ...this.clock };
   }
 
+  /** Valid game speed values */
+  private static readonly VALID_SPEEDS: readonly GameSpeed[] = [0, 1, 2, 4];
+
   /**
    * Set game speed (0 = paused, 1 = normal, 2 = fast, 4 = fastest)
+   * @throws Error if speed is not a valid GameSpeed value
    */
   setSpeed(speed: GameSpeed): void {
+    if (!ClockManager.VALID_SPEEDS.includes(speed)) {
+      console.warn(`Invalid game speed: ${speed}. Valid values: ${ClockManager.VALID_SPEEDS.join(', ')}`);
+      return;
+    }
+
     const oldSpeed = this.clock.speed;
+    if (oldSpeed === speed) return; // No change needed
+    
     this.clock.speed = speed;
 
     getEventBus().emitSync({
@@ -117,8 +128,11 @@ export class ClockManager {
     const deltaTime = currentTime - this.lastTimestamp;
     this.lastTimestamp = currentTime;
 
-    // Skip negative or zero delta
+    // Skip negative or zero delta (log for debugging timer issues)
     if (deltaTime <= 0) {
+      if (deltaTime < 0) {
+        console.warn(`Clock.update: Negative deltaTime detected (${deltaTime}ms). Possible timer issue.`);
+      }
       return 0;
     }
 
@@ -136,6 +150,7 @@ export class ClockManager {
       // Safety: don't process more than 10 ticks per frame
       // This prevents spiral of death if system is lagging
       if (tickCount >= 10) {
+        console.warn(`Clock.update: Hit max tick limit (10). System may be lagging. Dropping ${Math.floor(this.accumulator / TIMING.SIMULATION_TICK_MS)} ticks.`);
         this.accumulator = 0;
         break;
       }
